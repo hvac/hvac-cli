@@ -2,6 +2,8 @@ import os
 
 from cliff.command import Command
 
+from hvac_cli.cli import CLI
+
 class Get(Command):
     "get a secret"
 
@@ -10,4 +12,4 @@ class Get(Command):
         return parser
 
     def take_action(self, parsed_args):
-        pass
+        cli = CLI(parsed_args)

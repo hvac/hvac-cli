@@ -35,7 +35,7 @@ class HvacApp(App):
                   'This can also be specified via the VAULT_TOKEN environment variable.')
         )
         parser.add_argument(
-            '--vault',
+            '--address',
             default=os.getenv('VAULT_ADDR', DEFAULT_VAULT_ADDR),
             required=False,
             help=('Address of the Vault server. '
