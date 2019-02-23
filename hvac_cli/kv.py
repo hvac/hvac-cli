@@ -1,5 +1,6 @@
 import logging
 from cliff.show import ShowOne
+from cliff.lister import Lister
 from hvac_cli.cli import CLI
 import hvac
 
@@ -42,6 +43,13 @@ class KV(CLI):
         else:
             return self.vault.secrets.kv.v1.read_secret(
                 path, mount_point=self.mount_point)['data']
+
+    def list_secrets(self, path):
+        if self.kv_version == '2':
+            r = self.vault.secrets.kv.v2.list_secrets(path, mount_point=self.mount_point)
+        else:
+            r = self.vault.secrets.kv.v1.list_secrets(path, mount_point=self.mount_point)
+        return [[x] for x in r['data']['keys']]
 
     def erase(self, prefix):
         try:
@@ -166,3 +174,26 @@ class Put(KvCommand, ShowOne):
         kv = KV(self.app_args, parsed_args)
         kv.create_or_update_secret(parsed_args.key, self.parse_kvs(parsed_args.kvs))
         return self.dict2columns(kv.read_secret(parsed_args.key))
+
+
+class List(KvCommand, Lister):
+    """
+    Lists data from Vault's key-value store at the given path.
+
+    List values under the "my-app" folder of the key-value store:
+
+      $ hvac-cli kv list secret/my-app/
+    """
+
+    def get_parser(self, prog_name):
+        parser = super().get_parser(prog_name)
+        self.set_common_options(parser)
+        parser.add_argument(
+            'path',
+            help='path to list',
+        )
+        return parser
+
+    def take_action(self, parsed_args):
+        kv = KV(self.app_args, parsed_args)
+        return (['Keys'], kv.list_secrets(parsed_args.path))
