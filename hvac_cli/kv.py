@@ -1,0 +1,168 @@
+import logging
+from cliff.show import ShowOne
+from hvac_cli.cli import CLI
+import hvac
+
+logger = logging.getLogger(__name__)
+
+
+class KV(CLI):
+
+    def __init__(self, super_args, args):
+        super().__init__(super_args)
+        self.kv_version = args.kv_version
+        self.mount_point = args.mount_point
+        if not self.kv_version:
+            mounts = self.vault.sys.list_mounted_secrets_engines()['data']
+            path = self.mount_point + '/'
+            assert path in mounts, f'path {path} is not founds in mounts {mounts}'
+            self.kv_version = mounts[path]['options']['version']
+
+    def delete(self, path):
+        if self.kv_version == '2':
+            if not self.dry_run:
+                self.vault.secrets.kv.v2.delete_metadata_and_all_versions(
+                    path, mount_point=self.mount_point)
+        else:
+            if not self.dry_run:
+                self.vault.secrets.kv.v1.delete_secret(path, mount_point=self.mount_point)
+
+    def create_or_update_secret(self, path, entry):
+        if self.kv_version == '2':
+            self.vault.secrets.kv.v2.create_or_update_secret(
+                path, entry, mount_point=self.mount_point)
+        else:
+            self.vault.secrets.kv.v1.create_or_update_secret(
+                path, entry, mount_point=self.mount_point)
+
+    def read_secret(self, path):
+        if self.kv_version == '2':
+            return self.vault.secrets.kv.v2.read_secret_version(
+                path, mount_point=self.mount_point)['data']['data']
+        else:
+            return self.vault.secrets.kv.v1.read_secret(
+                path, mount_point=self.mount_point)['data']
+
+    def erase(self, prefix):
+        try:
+            if self.vault_kv_version == '2':
+                self.vault.secrets.kv.v2.list_secrets(prefix, mount_point=self.mount_point)
+            else:
+                self.vault.secrets.kv.v1.list_secrets(prefix, mount_point=self.mount_point)
+        except hvac.exceptions.InvalidPath:
+            return
+        self._erase(prefix)
+
+    def _erase(self, prefix):
+        if self.vault_kv_version == '2':
+            keys = self.vault.secrets.kv.v2.list_secrets(
+                prefix, mount_point=self.mount_point)['data']['keys']
+        else:
+            keys = self.vault.secrets.kv.v1.list_secrets(
+                prefix, mount_point=self.mount_point)['data']['keys']
+        for key in keys:
+            path = prefix + key
+            if path.endswith('/'):
+                self._erase(path)
+            else:
+                logger.debug(f'erase {path}')
+                self.delete_secret(path)
+
+
+class KvCommand(object):
+
+    def set_common_options(self, parser):
+        parser.add_argument(
+            '--mount-point',
+            default='secret',
+            help='KV path mount point, as found in vault read /sys/mounts',
+        )
+        parser.add_argument(
+            '--kv-version',
+            choices=['1', '2'],
+            required=False,
+            help=('Force the Vault KV backend version (1 or 2). '
+                  'Autodetect from `vault read /sys/mounts` if not set.')
+        )
+
+
+class Get(KvCommand, ShowOne):
+    """
+    Retrieves the value from Vault's key-value store at the given key name. If no
+    key exists with that name, an error is returned. If a key exists with that
+    name but has no data, nothing is returned.
+
+      $ hvac-cli kv get secret/foo
+
+    To view the given key name at a specific version in time, specify the "--version"
+    flag:
+
+      $ hvac-cli kv get --version=1 secret/foo
+    """
+
+    def get_parser(self, prog_name):
+        parser = super().get_parser(prog_name)
+        self.set_common_options(parser)
+        parser.add_argument(
+            '--version',
+            help='If passed, the value at the version number will be returned. (KvV2 only)',
+        )
+        parser.add_argument(
+            'key',
+            help='key to fetch',
+        )
+        return parser
+
+    def take_action(self, parsed_args):
+        kv = KV(self.app_args, parsed_args)
+        return self.dict2columns(kv.read_secret(parsed_args.key))
+
+
+class Put(KvCommand, ShowOne):
+    """
+      Writes the data to the given path in the key-value store. The data can be of
+      any type.
+
+          $ hvac-cli kv put secret/foo bar=baz
+
+      The data can also be consumed from a file on disk by prefixing with the "@"
+      symbol. For example:
+
+          $ hvac-cli kv put secret/foo @data.json
+
+      Or it can be read from stdin using the "-" symbol:
+
+          $ echo "abcd1234" | vault kv put secret/foo bar=-
+
+      To perform a Check-And-Set operation, specify the -cas flag with the
+      appropriate version number corresponding to the key you want to perform
+      the CAS operation on:
+
+          $ hvac-cli kv put -cas=1 secret/foo bar=baz
+     """
+
+    def get_parser(self, prog_name):
+        parser = super().get_parser(prog_name)
+        self.set_common_options(parser)
+        parser.add_argument(
+            'key',
+            help='key to set',
+        )
+        parser.add_argument(
+            'kvs',
+            nargs='*',
+            help='k=v',
+        )
+        return parser
+
+    def parse_kvs(self, kvs):
+        r = {}
+        for kv in kvs:
+            k, v = kv.split('=')
+            r[k] = v
+        return r
+
+    def take_action(self, parsed_args):
+        kv = KV(self.app_args, parsed_args)
+        kv.create_or_update_secret(parsed_args.key, self.parse_kvs(parsed_args.kvs))
+        return self.dict2columns(kv.read_secret(parsed_args.key))

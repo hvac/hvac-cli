@@ -1,4 +1,5 @@
 import hvac
+import logging
 import os
 import pytest
 import requests
@@ -79,5 +80,7 @@ def vault_server(tmpdir):
         'crt': crt,
         'key': key,
     }
-
+    # reduce the sh verbosity so it does not try to read on file
+    # descriptors that may have been closed by the capsys fixture
+    logging.getLogger('sh').setLevel(logging.ERROR)
     sh.docker('rm', '-f', container, _ok_code=[1, 0])

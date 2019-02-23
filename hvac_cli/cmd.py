@@ -8,6 +8,7 @@ from hvac_cli.version import __version__
 
 DEFAULT_VAULT_ADDR = 'http://127.0.0.1:8200'
 
+
 class HvacApp(App):
 
     def __init__(self):
@@ -20,13 +21,6 @@ class HvacApp(App):
 
     def build_option_parser(self, description, version, argparse_kwargs=None):
         parser = super().build_option_parser(description, version, argparse_kwargs)
-        parser.add_argument(
-            '--kv-version',
-            choices=['1', '2'],
-            required=False,
-            help=('Force the Vault KV backend version (1 or 2). '
-                  'Autodetect from `vault read /sys/mounts` if not set.')
-        )
         parser.add_argument(
             '--token',
             required=False,
