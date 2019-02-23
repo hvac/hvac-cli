@@ -22,14 +22,12 @@ class KV(CLI):
             assert path in mounts, f'path {path} is not founds in mounts {mounts}'
             self.kv_version = mounts[path]['options']['version']
 
-    def delete(self, path):
+    def delete_metadata_and_all_versions(self, path):
         if self.kv_version == '2':
-            if not self.dry_run:
-                self.vault.secrets.kv.v2.delete_metadata_and_all_versions(
-                    path, mount_point=self.mount_point)
+            self.vault.secrets.kv.v2.delete_metadata_and_all_versions(
+                path, mount_point=self.mount_point)
         else:
-            if not self.dry_run:
-                self.vault.secrets.kv.v1.delete_secret(path, mount_point=self.mount_point)
+            self.vault.secrets.kv.v1.delete_secret(path, mount_point=self.mount_point)
 
     def create_or_update_secret(self, path, entry):
         if self.kv_version == '2':
@@ -254,3 +252,24 @@ class Load(KvCommand, Command):
     def take_action(self, parsed_args):
         kv = KV(self.app_args, parsed_args)
         return kv.load(parsed_args.path)
+
+
+class MetadataDelete(KvCommand, Command):
+    """
+    Deletes all versions and metadata for the provided key.
+
+      $ hvac-cli kv metadata delete secret/foo
+    """
+
+    def get_parser(self, prog_name):
+        parser = super().get_parser(prog_name)
+        self.set_common_options(parser)
+        parser.add_argument(
+            'key',
+            help='key to delete',
+        )
+        return parser
+
+    def take_action(self, parsed_args):
+        kv = KV(self.app_args, parsed_args)
+        return kv.delete_metadata_and_all_versions(parsed_args.key)
