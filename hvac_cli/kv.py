@@ -4,7 +4,7 @@ from cliff.show import ShowOne
 from cliff.lister import Lister
 from cliff.command import Command
 from hvac_cli.cli import CLI
-import hvac
+import re
 import sys
 
 logger = logging.getLogger(__name__)
@@ -29,7 +29,24 @@ class KV(CLI):
         else:
             self.vault.secrets.kv.v1.delete_secret(path, mount_point=self.mount_point)
 
+    @staticmethod
+    def sanitize(path):
+        #
+        # Replace control characters and DEL because it would be
+        # difficult for the user to type them in the CLI or the web UI.
+        #
+        # Also replace % because it is used in URLs to express %20 etc.
+        #
+        path = re.sub(r'[\x00-\x1f%\x7f]', '_', path)
+        # workaround https://github.com/hashicorp/vault/issues/6282
+        path = re.sub(r'[#*+(\\[]', '_', path)
+        # workaround https://github.com/hashicorp/vault/issues/6213
+        path = re.sub(r'\s+/', '/', path)
+        path = re.sub(r'\s+$', '', path)
+        return path
+
     def create_or_update_secret(self, path, entry):
+        path = self.sanitize(path)
         if self.kv_version == '2':
             self.vault.secrets.kv.v2.create_or_update_secret(
                 path, entry, mount_point=self.mount_point)
