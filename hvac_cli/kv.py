@@ -1,8 +1,11 @@
+import json
 import logging
 from cliff.show import ShowOne
 from cliff.lister import Lister
+from cliff.command import Command
 from hvac_cli.cli import CLI
 import hvac
+import sys
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +53,30 @@ class KV(CLI):
         else:
             r = self.vault.secrets.kv.v1.list_secrets(path, mount_point=self.mount_point)
         return [[x] for x in r['data']['keys']]
+
+    def dump(self):
+        r = {}
+        self._dump(r, '')
+        json.dump(r, sys.stdout)
+
+    def _dump(self, r, prefix):
+        if self.kv_version == '2':
+            keys = self.vault.secrets.kv.v2.list_secrets(
+                prefix, mount_point=self.mount_point)['data']['keys']
+        else:
+            keys = self.vault.secrets.kv.v1.list_secrets(
+                prefix, mount_point=self.mount_point)['data']['keys']
+        for key in keys:
+            path = prefix + key
+            if path.endswith('/'):
+                self._dump(r, path)
+            else:
+                r[path] = self.read_secret(path)
+
+    def load(self, filepath):
+        secrets = json.load(open(filepath))
+        for k, v in secrets.items():
+            self.create_or_update_secret(k, v)
 
     def erase(self, prefix):
         try:
@@ -197,3 +224,33 @@ class List(KvCommand, Lister):
     def take_action(self, parsed_args):
         kv = KV(self.app_args, parsed_args)
         return (['Keys'], kv.list_secrets(parsed_args.path))
+
+
+class Dump(KvCommand, Command):
+    "Dump the secrets"
+
+    def get_parser(self, prog_name):
+        parser = super().get_parser(prog_name)
+        self.set_common_options(parser)
+        return parser
+
+    def take_action(self, parsed_args):
+        kv = KV(self.app_args, parsed_args)
+        return kv.dump()
+
+
+class Load(KvCommand, Command):
+    "Load the secrets"
+
+    def get_parser(self, prog_name):
+        parser = super().get_parser(prog_name)
+        self.set_common_options(parser)
+        parser.add_argument(
+            'path',
+            help='path containing secrets in json',
+        )
+        return parser
+
+    def take_action(self, parsed_args):
+        kv = KV(self.app_args, parsed_args)
+        return kv.load(parsed_args.path)
