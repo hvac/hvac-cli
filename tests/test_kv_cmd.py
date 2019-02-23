@@ -54,3 +54,14 @@ def test_metadata_delete(vault_server):
                  'kv', 'metadata', 'delete', key]) == 0
     assert main(['--token', vault_server['token'], '--address', vault_server['http'],
                  'kv', 'get', key]) == 1
+
+def test_erase(vault_server):
+    key = 'KEY'
+    assert main(['--token', vault_server['token'], '--address', vault_server['http'],
+                 'kv', 'put', key, 'a=b']) == 0
+    assert main(['--token', vault_server['token'], '--address', vault_server['http'],
+                 'kv', 'get', key]) == 0
+    assert main(['--token', vault_server['token'], '--address', vault_server['http'],
+                 'kv', 'erase']) == 0
+    assert main(['--token', vault_server['token'], '--address', vault_server['http'],
+                 'kv', 'get', key]) == 1

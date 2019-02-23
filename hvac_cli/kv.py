@@ -76,18 +76,8 @@ class KV(CLI):
         for k, v in secrets.items():
             self.create_or_update_secret(k, v)
 
-    def erase(self, prefix):
-        try:
-            if self.vault_kv_version == '2':
-                self.vault.secrets.kv.v2.list_secrets(prefix, mount_point=self.mount_point)
-            else:
-                self.vault.secrets.kv.v1.list_secrets(prefix, mount_point=self.mount_point)
-        except hvac.exceptions.InvalidPath:
-            return
-        self._erase(prefix)
-
-    def _erase(self, prefix):
-        if self.vault_kv_version == '2':
+    def erase(self, prefix=''):
+        if self.kv_version == '2':
             keys = self.vault.secrets.kv.v2.list_secrets(
                 prefix, mount_point=self.mount_point)['data']['keys']
         else:
@@ -96,10 +86,10 @@ class KV(CLI):
         for key in keys:
             path = prefix + key
             if path.endswith('/'):
-                self._erase(path)
+                self.erase(path)
             else:
                 logger.debug(f'erase {path}')
-                self.delete_secret(path)
+                self.delete_metadata_and_all_versions(path)
 
 
 class KvCommand(object):
@@ -252,6 +242,19 @@ class Load(KvCommand, Command):
     def take_action(self, parsed_args):
         kv = KV(self.app_args, parsed_args)
         return kv.load(parsed_args.path)
+
+
+class Erase(KvCommand, Command):
+    "Erase all secrets"
+
+    def get_parser(self, prog_name):
+        parser = super().get_parser(prog_name)
+        self.set_common_options(parser)
+        return parser
+
+    def take_action(self, parsed_args):
+        kv = KV(self.app_args, parsed_args)
+        return kv.erase()
 
 
 class MetadataDelete(KvCommand, Command):
