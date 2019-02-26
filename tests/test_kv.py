@@ -1,11 +1,18 @@
+import logging
 import hvac
 from hvac_cli.kv import KVCLI
 import mock
 import pytest
 
 
-def test_sanitize(vault_server):
+def test_sanitize_do_nothing():
     assert KVCLI.sanitize('a/b/c') == 'a/b/c'
+    path = 'éà'
+    assert KVCLI.sanitize(path) == path
+
+
+def test_sanitize_user_friendly(caplog):
+    caplog.set_level(logging.INFO, 'hvac_cli')
     path = '|'.join(["-{:02x}-{}".format(i, chr(i)) for i in range(128)])
     expected = ('-00-_|-01-_|-02-_|-03-_|-04-_|-05-_|-06-_|-07-_|'
                 '-08-_|-09-_|-0a-_|-0b-_|-0c-_|-0d-_|-0e-_|-0f-_|'
@@ -24,10 +31,15 @@ def test_sanitize(vault_server):
                 '-70-p|-71-q|-72-r|-73-s|-74-t|-75-u|-76-v|-77-w|'
                 '-78-x|-79-y|-7a-z|-7b-{|-7c-||-7d-}|-7e-~|-7f-_')
     assert KVCLI.sanitize(path) == expected
-    path = 'éà'
-    assert KVCLI.sanitize(path) == path
+    assert 'replace control characters' in caplog.text
+    assert 'issues/6282' in caplog.text
+
+
+def test_sanitize_bug_6213(caplog):
+    caplog.set_level(logging.INFO, 'hvac_cli')
     path = 'A B /C / D '
     assert KVCLI.sanitize(path) == 'A B/C/ D'
+    assert 'issues/6213' in caplog.text
 
 
 @pytest.mark.parametrize("version", ['1', '2'])

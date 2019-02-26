@@ -31,18 +31,32 @@ class KVCLI(CLI):
 
     @staticmethod
     def sanitize(path):
-        #
-        # Replace control characters and DEL because it would be
-        # difficult for the user to type them in the CLI or the web UI.
-        #
-        # Also replace % because it is used in URLs to express %20 etc.
-        #
-        path = re.sub(r'[\x00-\x1f%\x7f]', '_', path)
-        # workaround https://github.com/hashicorp/vault/issues/6282
-        path = re.sub(r'[#*+(\\[]', '_', path)
-        # workaround https://github.com/hashicorp/vault/issues/6213
-        path = re.sub(r'\s+/', '/', path)
-        path = re.sub(r'\s+$', '', path)
+        def log_sanitation(path, fun):
+            new_path, reason = fun(path)
+            if new_path != path:
+                logger.info(f'{path} replaced by {new_path} to {reason}')
+            return new_path
+
+        def user_friendly(path):
+            """replace control characters and DEL because they would be
+            difficult for the user to type in the CLI or the web UI.
+            Also replace % because it is used in URLs to express %20 etc.
+            """
+            return re.sub(r'[\x00-\x1f%\x7f]', '_', path), user_friendly.__doc__
+        path = log_sanitation(path, user_friendly)
+
+        def bug_6282(path):
+            "workaround https://github.com/hashicorp/vault/issues/6282"
+            return re.sub(r'[#*+(\\[]', '_', path), bug_6282.__doc__
+        path = log_sanitation(path, bug_6282)
+
+        def bug_6213(path):
+            "workaround https://github.com/hashicorp/vault/issues/6213"
+            path = re.sub(r'\s+/', '/', path)
+            path = re.sub(r'\s+$', '', path)
+            return path, bug_6213.__doc__
+        path = log_sanitation(path, bug_6213)
+
         return path
 
     def create_or_update_secret(self, path, entry):
