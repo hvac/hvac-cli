@@ -1,0 +1,6 @@
+dist: latest
+language: python
+python: 3.6
+script:
+  - tox
+
