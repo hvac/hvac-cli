@@ -10,7 +10,7 @@ import sys
 logger = logging.getLogger(__name__)
 
 
-class KV(CLI):
+class KVCLI(CLI):
 
     def __init__(self, super_args, args):
         super().__init__(super_args)
@@ -154,7 +154,7 @@ class Get(KvCommand, ShowOne):
         return parser
 
     def take_action(self, parsed_args):
-        kv = KV(self.app_args, parsed_args)
+        kv = KVCLI(self.app_args, parsed_args)
         return self.dict2columns(kv.read_secret(parsed_args.key))
 
 
@@ -203,7 +203,7 @@ class Put(KvCommand, ShowOne):
         return r
 
     def take_action(self, parsed_args):
-        kv = KV(self.app_args, parsed_args)
+        kv = KVCLI(self.app_args, parsed_args)
         kv.create_or_update_secret(parsed_args.key, self.parse_kvs(parsed_args.kvs))
         return self.dict2columns(kv.read_secret(parsed_args.key))
 
@@ -227,7 +227,7 @@ class List(KvCommand, Lister):
         return parser
 
     def take_action(self, parsed_args):
-        kv = KV(self.app_args, parsed_args)
+        kv = KVCLI(self.app_args, parsed_args)
         return (['Keys'], kv.list_secrets(parsed_args.path))
 
 
@@ -240,7 +240,7 @@ class Dump(KvCommand, Command):
         return parser
 
     def take_action(self, parsed_args):
-        kv = KV(self.app_args, parsed_args)
+        kv = KVCLI(self.app_args, parsed_args)
         return kv.dump()
 
 
@@ -257,7 +257,7 @@ class Load(KvCommand, Command):
         return parser
 
     def take_action(self, parsed_args):
-        kv = KV(self.app_args, parsed_args)
+        kv = KVCLI(self.app_args, parsed_args)
         return kv.load(parsed_args.path)
 
 
@@ -270,7 +270,7 @@ class Erase(KvCommand, Command):
         return parser
 
     def take_action(self, parsed_args):
-        kv = KV(self.app_args, parsed_args)
+        kv = KVCLI(self.app_args, parsed_args)
         return kv.erase()
 
 
@@ -291,5 +291,5 @@ class MetadataDelete(KvCommand, Command):
         return parser
 
     def take_action(self, parsed_args):
-        kv = KV(self.app_args, parsed_args)
+        kv = KVCLI(self.app_args, parsed_args)
         return kv.delete_metadata_and_all_versions(parsed_args.key)

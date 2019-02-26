@@ -1,8 +1,9 @@
-from hvac_cli.kv import KV
+from hvac_cli.kv import KVCLI
+import mock
 
 
 def test_sanitize(vault_server):
-    assert KV.sanitize('a/b/c') == 'a/b/c'
+    assert KVCLI.sanitize('a/b/c') == 'a/b/c'
     path = '|'.join(["-{:02x}-{}".format(i, chr(i)) for i in range(128)])
     expected = ('-00-_|-01-_|-02-_|-03-_|-04-_|-05-_|-06-_|-07-_|'
                 '-08-_|-09-_|-0a-_|-0b-_|-0c-_|-0d-_|-0e-_|-0f-_|'
@@ -20,8 +21,17 @@ def test_sanitize(vault_server):
                 '-68-h|-69-i|-6a-j|-6b-k|-6c-l|-6d-m|-6e-n|-6f-o|'
                 '-70-p|-71-q|-72-r|-73-s|-74-t|-75-u|-76-v|-77-w|'
                 '-78-x|-79-y|-7a-z|-7b-{|-7c-||-7d-}|-7e-~|-7f-_')
-    assert KV.sanitize(path) == expected
+    assert KVCLI.sanitize(path) == expected
     path = 'éà'
-    assert KV.sanitize(path) == path
+    assert KVCLI.sanitize(path) == path
     path = 'A B /C / D '
-    assert KV.sanitize(path) == 'A B/C/ D'
+    assert KVCLI.sanitize(path) == 'A B/C/ D'
+
+
+def test_init(vault_server):
+    CLI_args = mock.MagicMock()
+    CLI_args.token = vault_server['token']
+    CLI_args.address = vault_server['http']
+    KV_args = mock.MagicMock()
+    KV_args.kv_version = '2'
+    kv = KVCLI(CLI_args, KV_args)
