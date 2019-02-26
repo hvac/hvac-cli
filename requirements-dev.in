@@ -8,3 +8,4 @@ sphinx==1.8.3
 sphinx-argparse==0.2.5
 mock==2.0.0
 sh==1.12.14
+twine==1.13.0

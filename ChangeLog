@@ -1,0 +1,27 @@
+CHANGES
+=======
+
+1.0.0
+-----
+
+* travis badge
+* add tox from travis
+* add travis
+* display info to the user when the path is rewritten
+* test read/write/delete for KV v1 & v2
+* test client and server cert
+* replace KV() with KVCLI()
+* implement status
+* sanitize kv paths to workaround #6282, #6213
+* test that environment variables can be used instead of arguments
+* add test helper to mock the environment
+* implement kv erase
+* implement kv metadata delete
+* implement kv load/dump
+* implement kv list
+* implement basic kv get/put with tests
+* stub for hvac-cli including vault fixture to init hvac
+* define global options
+* setup documentation with the sphinx cliff plugin
+* cliff based skeleton
+* Initial commit
