@@ -4,6 +4,8 @@ CHANGES
 1.0.0
 -----
 
+* version 1.0.0
+* add twine to publish the release
 * travis badge
 * add tox from travis
 * add travis
