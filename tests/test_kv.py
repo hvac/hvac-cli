@@ -1,5 +1,7 @@
+import hvac
 from hvac_cli.kv import KVCLI
 import mock
+import pytest
 
 
 def test_sanitize(vault_server):
@@ -28,10 +30,24 @@ def test_sanitize(vault_server):
     assert KVCLI.sanitize(path) == 'A B/C/ D'
 
 
-def test_init(vault_server):
+@pytest.mark.parametrize("version", ['1', '2'])
+def test_kv_version(vault_server, version):
+    path = 'mysecrets'
+    client = hvac.Client(url=vault_server['http'], token=vault_server['token'])
+    client.sys.enable_secrets_engine(backend_type='kv', options={'version': version}, path=path)
+
     CLI_args = mock.MagicMock()
     CLI_args.token = vault_server['token']
     CLI_args.address = vault_server['http']
     KV_args = mock.MagicMock()
-    KV_args.kv_version = '2'
+    KV_args.kv_version = version
+    KV_args.mount_point = 'mysecrets/'
     kv = KVCLI(CLI_args, KV_args)
+
+    secret_key = 'my/key'
+    secret_value = {'field': 'value'}
+    kv.create_or_update_secret(secret_key, secret_value)
+    assert kv.read_secret(secret_key) == secret_value
+    kv.erase()
+    with pytest.raises(hvac.exceptions.InvalidPath):
+        kv.read_secret(secret_key)
