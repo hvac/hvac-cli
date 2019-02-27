@@ -181,3 +181,19 @@ def test_destroy(vault_server, capsys):
     for i in ('1', '2'):
         assert not versions[i]['deletion_time']
         assert versions[i]['destroyed']
+
+
+def test_rollback(vault_server, capsys):
+    key = 'KEY'
+    for i in ('1', '2'):
+        assert main(['--token', vault_server['token'], '--address', vault_server['http'],
+                     'kv', 'put', key, f'a={i}']) == 0
+
+    assert main(['--token', vault_server['token'], '--address', vault_server['http'],
+                 'kv', 'rollback', '--from-version=1', key]) == 0
+
+    captured = capsys.readouterr()
+    assert main(['--token', vault_server['token'], '--address', vault_server['http'],
+                 'kv', 'get', '--format=json', key]) == 0
+    captured = capsys.readouterr()
+    assert json.loads(captured.out) == {'a': '1'}

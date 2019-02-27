@@ -150,6 +150,10 @@ class KVv1CLI(KVCLI):
         raise SecretVersion(
             f'{self.mount_point} is KV {self.kv_version} and does not support undelete')
 
+    def rollback(self, path, version):
+        raise SecretVersion(
+            f'{self.mount_point} is KV {self.kv_version} and does not support rollback')
+
 
 class KVv2CLI(KVCLI):
 
@@ -194,6 +198,11 @@ class KVv2CLI(KVCLI):
     def undelete(self, path, versions):
         self.kv.undelete_secret_versions(
             path, versions=versions, mount_point=self.mount_point)
+        return 0
+
+    def rollback(self, path, version):
+        entry = self.read_secret(path, version=version)
+        self.kv.create_or_update_secret(path, entry, mount_point=self.mount_point)
         return 0
 
 
@@ -339,6 +348,35 @@ class Undelete(KvCommand, Command):
     def take_action(self, parsed_args):
         kv = kvcli_factory(self.app_args, parsed_args)
         return kv.undelete(parsed_args.key, parsed_args.versions.split(','))
+
+
+class Rollback(KvCommand, Command):
+    """
+    Restores a given previous version to the current version at the given path
+    The value is written as a new version; for instance, if the current version
+    is 5 and the rollback version is 2, the data from version 2 will become
+    version 6.
+
+      $ hvac-cli kv rollback --version=2 secret/foo
+    """
+
+    def get_parser(self, prog_name):
+        parser = super().get_parser(prog_name)
+        self.set_common_options(parser)
+        parser.add_argument(
+            '--from-version',
+            required=True,
+            help='The version number that should be made current again',
+        )
+        parser.add_argument(
+            'key',
+            help='key to rollback',
+        )
+        return parser
+
+    def take_action(self, parsed_args):
+        kv = kvcli_factory(self.app_args, parsed_args)
+        return kv.rollback(parsed_args.key, parsed_args.from_version)
 
 
 class PutOrPatch(KvCommand, ShowOne):

@@ -340,3 +340,46 @@ def test_destroy_version_v2(vault_server):
         assert versions[i]['destroyed']
         with pytest.raises(hvac.exceptions.InvalidPath):
             kv.read_secret(secret_key, i)
+
+
+def test_rollback_version_v1(vault_server):
+    mount_point = 'mysecrets'
+    mount_kv(vault_server, mount_point, '1')
+
+    CLI_args = mock.MagicMock()
+    CLI_args.token = vault_server['token']
+    CLI_args.address = vault_server['http']
+    KV_args = mock.MagicMock()
+    KV_args.kv_version = None
+    KV_args.mount_point = mount_point
+    kv = kvcli_factory(CLI_args, KV_args)
+
+    secret_key = 'my/key'
+    secret_value = {'field': 'value'}
+    kv.create_or_update_secret(secret_key, secret_value, cas=None)
+    with pytest.raises(SecretVersion):
+        kv.rollback(secret_key, version='1')
+
+
+def test_rollback_version_v2(vault_server):
+    mount_point = 'mysecrets'
+    mount_kv(vault_server, mount_point, '2')
+
+    CLI_args = mock.MagicMock()
+    CLI_args.token = vault_server['token']
+    CLI_args.address = vault_server['http']
+    KV_args = mock.MagicMock()
+    KV_args.kv_version = None
+    KV_args.mount_point = mount_point
+    kv = kvcli_factory(CLI_args, KV_args)
+
+    secret_key = 'my/key'
+    secret_value = {'field': 'value'}
+    for i in ('1', '2', '3'):
+        secret_value = {'field': i}
+        kv.create_or_update_secret(secret_key, secret_value, cas=None)
+
+    with pytest.raises(hvac.exceptions.InvalidPath):
+        kv.read_secret(secret_key, '4')
+    kv.rollback(secret_key, '2')
+    assert kv.read_secret(secret_key, '4') == {'field': '2'}
