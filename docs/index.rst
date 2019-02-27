@@ -42,7 +42,8 @@ token        no	      Interact with tokens
    available under a Free Software license.
 
 .. toctree::
+  :hidden:
   :maxdepth: 1
-	      
-  reference
+
   development
+
