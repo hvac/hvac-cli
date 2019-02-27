@@ -13,7 +13,12 @@ class HvacApp(App):
 
     def __init__(self):
         super(HvacApp, self).__init__(
-            description='hvac cli',
+            description="""
+            hvac-cli is CLI to Hashicorp Vault with additional features.
+            It does not support extensions that are not available
+            as Free Software such as namespaces, Sentinel, Policy Overrides
+            or Multi-factor Authentication (MFA).
+            """,
             version=__version__,
             command_manager=CommandManager('hvac_cli'),
             deferred_help=True,

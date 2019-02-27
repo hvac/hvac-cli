@@ -13,9 +13,9 @@ class StatusCLI(CLI):
 
 class Status(ShowOne):
     """
-    Prints the current state of Vault including whether it is sealed and if HA
-    mode is enabled. This command prints regardless of whether the Vault is
-    sealed.
+    Prints the current state of Vault including whether it is sealed
+    and if HA mode is enabled.
+    This command prints regardless of whether the Vault is sealed.
 
       $ hvac-cli status
     """
