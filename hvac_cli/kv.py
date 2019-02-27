@@ -10,24 +10,33 @@ import sys
 logger = logging.getLogger(__name__)
 
 
+class ReadSecretVersion(Exception):
+    pass
+
+
+class SecretVersion(Exception):
+    pass
+
+
+def kvcli_factory(super_args, args):
+    cli = CLI(super_args)
+    if not args.kv_version:
+        mounts = cli.vault.sys.list_mounted_secrets_engines()['data']
+        path = args.mount_point + '/'
+        assert path in mounts, f'path {path} is not founds in mounts {mounts}'
+        args.kv_version = mounts[path]['options']['version']
+    if args.kv_version == '1':
+        return KVv1CLI(super_args, args)
+    else:
+        return KVv2CLI(super_args, args)
+
+
 class KVCLI(CLI):
 
     def __init__(self, super_args, args):
         super().__init__(super_args)
         self.kv_version = args.kv_version
         self.mount_point = args.mount_point
-        if not self.kv_version:
-            mounts = self.vault.sys.list_mounted_secrets_engines()['data']
-            path = self.mount_point + '/'
-            assert path in mounts, f'path {path} is not founds in mounts {mounts}'
-            self.kv_version = mounts[path]['options']['version']
-
-    def delete_metadata_and_all_versions(self, path):
-        if self.kv_version == '2':
-            self.vault.secrets.kv.v2.delete_metadata_and_all_versions(
-                path, mount_point=self.mount_point)
-        else:
-            self.vault.secrets.kv.v1.delete_secret(path, mount_point=self.mount_point)
 
     @staticmethod
     def sanitize(path):
@@ -59,29 +68,8 @@ class KVCLI(CLI):
 
         return path
 
-    def create_or_update_secret(self, path, entry):
-        path = self.sanitize(path)
-        if self.kv_version == '2':
-            self.vault.secrets.kv.v2.create_or_update_secret(
-                path, entry, mount_point=self.mount_point)
-        else:
-            self.vault.secrets.kv.v1.create_or_update_secret(
-                path, entry, mount_point=self.mount_point)
-
-    def read_secret(self, path):
-        if self.kv_version == '2':
-            return self.vault.secrets.kv.v2.read_secret_version(
-                path, mount_point=self.mount_point)['data']['data']
-        else:
-            return self.vault.secrets.kv.v1.read_secret(
-                path, mount_point=self.mount_point)['data']
-
     def list_secrets(self, path):
-        if self.kv_version == '2':
-            r = self.vault.secrets.kv.v2.list_secrets(path, mount_point=self.mount_point)
-        else:
-            r = self.vault.secrets.kv.v1.list_secrets(path, mount_point=self.mount_point)
-        return [[x] for x in r['data']['keys']]
+        return self.kv.list_secrets(path, mount_point=self.mount_point)['data']['keys']
 
     def dump(self):
         r = {}
@@ -89,31 +77,21 @@ class KVCLI(CLI):
         json.dump(r, sys.stdout)
 
     def _dump(self, r, prefix):
-        if self.kv_version == '2':
-            keys = self.vault.secrets.kv.v2.list_secrets(
-                prefix, mount_point=self.mount_point)['data']['keys']
-        else:
-            keys = self.vault.secrets.kv.v1.list_secrets(
-                prefix, mount_point=self.mount_point)['data']['keys']
+        keys = self.list_secrets(prefix)
         for key in keys:
             path = prefix + key
             if path.endswith('/'):
                 self._dump(r, path)
             else:
-                r[path] = self.read_secret(path)
+                r[path] = self.read_secret(path, version=None)
 
     def load(self, filepath):
         secrets = json.load(open(filepath))
         for k, v in secrets.items():
-            self.create_or_update_secret(k, v)
+            self.create_or_update_secret(k, v, cas=None)
 
     def erase(self, prefix=''):
-        if self.kv_version == '2':
-            keys = self.vault.secrets.kv.v2.list_secrets(
-                prefix, mount_point=self.mount_point)['data']['keys']
-        else:
-            keys = self.vault.secrets.kv.v1.list_secrets(
-                prefix, mount_point=self.mount_point)['data']['keys']
+        keys = self.list_secrets(prefix)
         for key in keys:
             path = prefix + key
             if path.endswith('/'):
@@ -121,6 +99,47 @@ class KVCLI(CLI):
             else:
                 logger.debug(f'erase {path}')
                 self.delete_metadata_and_all_versions(path)
+
+
+class KVv1CLI(KVCLI):
+
+    def __init__(self, super_args, args):
+        super().__init__(super_args, args)
+        self.kv = self.vault.secrets.kv.v1
+
+    def delete_metadata_and_all_versions(self, path):
+        self.kv.delete_secret(path, mount_point=self.mount_point)
+
+    def create_or_update_secret(self, path, entry, cas):
+        if cas:
+            raise SecretVersion(
+                f'{self.mount_point} is KV {self.kv_version} and does not support --cas')
+        path = self.sanitize(path)
+        self.kv.create_or_update_secret(path, entry, mount_point=self.mount_point)
+
+    def read_secret(self, path, version):
+        if version:
+            raise ReadSecretVersion(
+                f'{self.mount_point} is KV {self.kv_version} and does not support --version')
+        return self.kv.read_secret(path, mount_point=self.mount_point)['data']
+
+
+class KVv2CLI(KVCLI):
+
+    def __init__(self, super_args, args):
+        super().__init__(super_args, args)
+        self.kv = self.vault.secrets.kv.v2
+
+    def delete_metadata_and_all_versions(self, path):
+        self.kv.delete_metadata_and_all_versions(path, mount_point=self.mount_point)
+
+    def create_or_update_secret(self, path, entry, cas):
+        path = self.sanitize(path)
+        self.kv.create_or_update_secret(path, entry, cas=cas, mount_point=self.mount_point)
+
+    def read_secret(self, path, version):
+        return self.kv.read_secret_version(
+            path, version=version, mount_point=self.mount_point)['data']['data']
 
 
 class KvCommand(object):
@@ -168,8 +187,8 @@ class Get(KvCommand, ShowOne):
         return parser
 
     def take_action(self, parsed_args):
-        kv = KVCLI(self.app_args, parsed_args)
-        return self.dict2columns(kv.read_secret(parsed_args.key))
+        kv = kvcli_factory(self.app_args, parsed_args)
+        return self.dict2columns(kv.read_secret(parsed_args.key, parsed_args.version))
 
 
 class Put(KvCommand, ShowOne):
@@ -199,6 +218,14 @@ class Put(KvCommand, ShowOne):
         parser = super().get_parser(prog_name)
         self.set_common_options(parser)
         parser.add_argument(
+            '--cas',
+            help=('Specifies to use a Check-And-Set operation. If not set the write will be '
+                  'allowed. If set to 0 a write will only be allowed if the key doesn’t '
+                  'exist. If the index is non-zero the write will only be allowed if '
+                  'the key’s current version matches the version specified in the cas '
+                  'parameter. (KvV2 only)'),
+        )
+        parser.add_argument(
             'key',
             help='key to set',
         )
@@ -217,9 +244,11 @@ class Put(KvCommand, ShowOne):
         return r
 
     def take_action(self, parsed_args):
-        kv = KVCLI(self.app_args, parsed_args)
-        kv.create_or_update_secret(parsed_args.key, self.parse_kvs(parsed_args.kvs))
-        return self.dict2columns(kv.read_secret(parsed_args.key))
+        kv = kvcli_factory(self.app_args, parsed_args)
+        kv.create_or_update_secret(parsed_args.key,
+                                   self.parse_kvs(parsed_args.kvs),
+                                   cas=parsed_args.cas)
+        return self.dict2columns(kv.read_secret(parsed_args.key, version=None))
 
 
 class List(KvCommand, Lister):
@@ -241,8 +270,9 @@ class List(KvCommand, Lister):
         return parser
 
     def take_action(self, parsed_args):
-        kv = KVCLI(self.app_args, parsed_args)
-        return (['Keys'], kv.list_secrets(parsed_args.path))
+        kv = kvcli_factory(self.app_args, parsed_args)
+        r = [[x] for x in kv.list_secrets(parsed_args.path)]
+        return (['Keys'], r)
 
 
 class Dump(KvCommand, Command):
@@ -254,7 +284,7 @@ class Dump(KvCommand, Command):
         return parser
 
     def take_action(self, parsed_args):
-        kv = KVCLI(self.app_args, parsed_args)
+        kv = kvcli_factory(self.app_args, parsed_args)
         return kv.dump()
 
 
@@ -271,7 +301,7 @@ class Load(KvCommand, Command):
         return parser
 
     def take_action(self, parsed_args):
-        kv = KVCLI(self.app_args, parsed_args)
+        kv = kvcli_factory(self.app_args, parsed_args)
         return kv.load(parsed_args.path)
 
 
@@ -284,7 +314,7 @@ class Erase(KvCommand, Command):
         return parser
 
     def take_action(self, parsed_args):
-        kv = KVCLI(self.app_args, parsed_args)
+        kv = kvcli_factory(self.app_args, parsed_args)
         return kv.erase()
 
 
@@ -305,5 +335,5 @@ class MetadataDelete(KvCommand, Command):
         return parser
 
     def take_action(self, parsed_args):
-        kv = KVCLI(self.app_args, parsed_args)
+        kv = kvcli_factory(self.app_args, parsed_args)
         return kv.delete_metadata_and_all_versions(parsed_args.key)

@@ -1,6 +1,6 @@
 import logging
 import hvac
-from hvac_cli.kv import KVCLI
+from hvac_cli.kv import KVCLI, kvcli_factory, ReadSecretVersion
 import mock
 import pytest
 
@@ -41,15 +41,17 @@ def test_sanitize_bug_6213(caplog):
     assert KVCLI.sanitize(path) == 'A B/C/ D'
     assert 'issues/6213' in caplog.text
 
+
 def mount_kv(vault_server, mount_point, kv_version):
     client = hvac.Client(url=vault_server['http'], token=vault_server['token'])
     client.sys.disable_secrets_engine(path=mount_point)
     client.sys.enable_secrets_engine(
         backend_type='kv', options={'version': kv_version}, path=mount_point)
 
+
 @pytest.mark.parametrize("kv_version", ['1', '2'])
 def test_kv_version(vault_server, kv_version):
-    mount_point = 'mysecrets/'
+    mount_point = 'mysecrets'
     mount_kv(vault_server, mount_point, kv_version)
 
     CLI_args = mock.MagicMock()
@@ -58,12 +60,59 @@ def test_kv_version(vault_server, kv_version):
     KV_args = mock.MagicMock()
     KV_args.kv_version = kv_version
     KV_args.mount_point = mount_point
-    kv = KVCLI(CLI_args, KV_args)
+    kv = kvcli_factory(CLI_args, KV_args)
 
     secret_key = 'my/key'
     secret_value = {'field': 'value'}
-    kv.create_or_update_secret(secret_key, secret_value)
-    assert kv.read_secret(secret_key) == secret_value
+    version = None
+    kv.create_or_update_secret(secret_key, secret_value, cas=None)
+    assert kv.read_secret(secret_key, version) == secret_value
     kv.erase()
     with pytest.raises(hvac.exceptions.InvalidPath):
-        kv.read_secret(secret_key)
+        kv.read_secret(secret_key, version)
+
+
+def test_read_secret_version_v1(vault_server):
+    mount_point = 'mysecrets'
+    mount_kv(vault_server, mount_point, '1')
+
+    CLI_args = mock.MagicMock()
+    CLI_args.token = vault_server['token']
+    CLI_args.address = vault_server['http']
+    KV_args = mock.MagicMock()
+    KV_args.kv_version = None
+    KV_args.mount_point = mount_point
+    kv = kvcli_factory(CLI_args, KV_args)
+
+    secret_key = 'my/key'
+    secret_value = {'field': 'value'}
+    version = None
+    kv.create_or_update_secret(secret_key, secret_value, cas=None)
+    assert kv.read_secret(secret_key, version) == secret_value
+    with pytest.raises(ReadSecretVersion):
+        kv.read_secret(secret_key, '0')
+    kv.erase()
+    with pytest.raises(hvac.exceptions.InvalidPath):
+        kv.read_secret(secret_key, version)
+
+
+def test_read_secret_version_v2(vault_server):
+    mount_point = 'mysecrets'
+    mount_kv(vault_server, mount_point, '2')
+
+    CLI_args = mock.MagicMock()
+    CLI_args.token = vault_server['token']
+    CLI_args.address = vault_server['http']
+    KV_args = mock.MagicMock()
+    KV_args.kv_version = None
+    KV_args.mount_point = mount_point
+    kv = kvcli_factory(CLI_args, KV_args)
+
+    secret_key = 'my/key'
+    secret_value = {'field': 'value'}
+    kv.create_or_update_secret(secret_key, secret_value, cas=None)
+    assert kv.read_secret(secret_key, None) == secret_value
+    assert kv.read_secret(secret_key, 0) == secret_value
+    kv.erase()
+    with pytest.raises(hvac.exceptions.InvalidPath):
+        kv.read_secret(secret_key, None)
