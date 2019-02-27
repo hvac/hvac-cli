@@ -153,3 +153,31 @@ def test_delete(vault_server, capsys):
     for i in ('1', '2'):
         assert not versions[i]['deletion_time']
         assert not versions[i]['destroyed']
+
+
+def test_destroy(vault_server, capsys):
+    key = 'KEY'
+    for i in ('1', '2'):
+        assert main(['--token', vault_server['token'], '--address', vault_server['http'],
+                     'kv', 'put', key, 'a=b']) == 0
+
+    captured = capsys.readouterr()
+    assert main(['--token', vault_server['token'], '--address', vault_server['http'],
+                 'kv', 'metadata', 'get', '--format=json', key]) == 0
+    captured = capsys.readouterr()
+    versions = json.loads(captured.out)['data']['versions']
+    for i in ('1', '2'):
+        assert not versions[i]['deletion_time']
+        assert not versions[i]['destroyed']
+
+    assert main(['--token', vault_server['token'], '--address', vault_server['http'],
+                 'kv', 'destroy', '--versions=1,2', key]) == 0
+
+    captured = capsys.readouterr()
+    assert main(['--token', vault_server['token'], '--address', vault_server['http'],
+                 'kv', 'metadata', 'get', '--format=json', key]) == 0
+    captured = capsys.readouterr()
+    versions = json.loads(captured.out)['data']['versions']
+    for i in ('1', '2'):
+        assert not versions[i]['deletion_time']
+        assert versions[i]['destroyed']

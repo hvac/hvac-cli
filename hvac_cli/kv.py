@@ -135,6 +135,10 @@ class KVv1CLI(KVCLI):
                 f'{self.mount_point} is KV {self.kv_version} and does not support --version')
         return self.kv.read_secret(path, mount_point=self.mount_point)['data']
 
+    def destroy(self, path, versions):
+        raise SecretVersion(
+            f'{self.mount_point} is KV {self.kv_version} and does not support destroy')
+
     def delete(self, path, versions):
         if versions:
             raise SecretVersion(
@@ -174,6 +178,10 @@ class KVv2CLI(KVCLI):
     def read_secret(self, path, version):
         return self.kv.read_secret_version(
             path, version=version, mount_point=self.mount_point)['data']['data']
+
+    def destroy(self, path, versions):
+        self.kv.destroy_secret_versions(path, versions, mount_point=self.mount_point)
+        return 0
 
     def delete(self, path, versions):
         if versions:
@@ -273,6 +281,35 @@ class Delete(KvCommand, Command):
         else:
             versions = None
         return kv.delete(parsed_args.key, versions)
+
+
+class Destroy(KvCommand, Command):
+    """
+    Permanently removes the specified versions' data from the key-value store
+    If  no key exists at the path, no action is taken.
+
+    To destroy version 3 of key foo:
+
+      $ hvac-cli kv destroy --versions=3 secret/foo
+    """
+
+    def get_parser(self, prog_name):
+        parser = super().get_parser(prog_name)
+        self.set_common_options(parser)
+        parser.add_argument(
+            '--versions',
+            required=True,
+            help='The comma separate list of version numbers to destroy',
+        )
+        parser.add_argument(
+            'key',
+            help='key to destroy',
+        )
+        return parser
+
+    def take_action(self, parsed_args):
+        kv = kvcli_factory(self.app_args, parsed_args)
+        return kv.destroy(parsed_args.key, parsed_args.versions.split(','))
 
 
 class Undelete(KvCommand, Command):
