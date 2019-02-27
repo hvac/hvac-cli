@@ -337,7 +337,7 @@ class Undelete(KvCommand, Command):
         parser.add_argument(
             '--versions',
             required=True,
-            help='The comma separate list of version numbers to delete',
+            help='The comma separate list of version numbers to undelete',
         )
         parser.add_argument(
             'key',
