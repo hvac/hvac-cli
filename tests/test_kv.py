@@ -176,3 +176,69 @@ def test_metadata_v2(vault_server):
     kv.delete_metadata_and_all_versions(secret_key)
     with pytest.raises(hvac.exceptions.InvalidPath):
         kv.read_secret_metadata(secret_key)
+
+
+def test_delete_version_v1(vault_server):
+    mount_point = 'mysecrets'
+    mount_kv(vault_server, mount_point, '1')
+
+    CLI_args = mock.MagicMock()
+    CLI_args.token = vault_server['token']
+    CLI_args.address = vault_server['http']
+    KV_args = mock.MagicMock()
+    KV_args.kv_version = None
+    KV_args.mount_point = mount_point
+    kv = kvcli_factory(CLI_args, KV_args)
+
+    secret_key = 'my/key'
+    secret_value = {'field': 'value'}
+    kv.create_or_update_secret(secret_key, secret_value, cas=None)
+    with pytest.raises(SecretVersion):
+        kv.delete(secret_key, versions='1')
+    assert kv.delete(secret_key, versions=None) == 0
+    with pytest.raises(hvac.exceptions.InvalidPath):
+        kv.read_secret(secret_key, None)
+    with pytest.raises(SecretVersion):
+        kv.undelete(secret_key, versions='1')
+
+
+def test_delete_version_v2(vault_server):
+    mount_point = 'mysecrets'
+    mount_kv(vault_server, mount_point, '2')
+
+    CLI_args = mock.MagicMock()
+    CLI_args.token = vault_server['token']
+    CLI_args.address = vault_server['http']
+    KV_args = mock.MagicMock()
+    KV_args.kv_version = None
+    KV_args.mount_point = mount_point
+    kv = kvcli_factory(CLI_args, KV_args)
+
+    secret_key = 'my/key'
+    secret_value = {'field': 'value'}
+    for i in ('1', '2', '3'):
+        secret_value = {'field': i}
+        kv.create_or_update_secret(secret_key, secret_value, cas=None)
+        versions = kv.read_secret_metadata(secret_key)['data']['versions']
+        assert not versions[i]['deletion_time']
+        assert not versions[i]['destroyed']
+
+    assert kv.delete(secret_key, versions=None) == 0
+    versions = kv.read_secret_metadata(secret_key)['data']['versions']
+    assert versions['3']['deletion_time']
+    assert not versions['3']['destroyed']
+
+    assert kv.delete(secret_key, versions=['1', '2']) == 0
+    versions = kv.read_secret_metadata(secret_key)['data']['versions']
+    for i in ('1', '2'):
+        assert versions[i]['deletion_time']
+        assert not versions[i]['destroyed']
+        with pytest.raises(hvac.exceptions.InvalidPath):
+            kv.read_secret(secret_key, i)
+
+    assert kv.undelete(secret_key, versions=['1', '2']) == 0
+    versions = kv.read_secret_metadata(secret_key)['data']['versions']
+    for i in ('1', '2'):
+        assert not versions[i]['deletion_time']
+        assert not versions[i]['destroyed']
+        assert kv.read_secret(secret_key, i) == {'field': i}

@@ -108,7 +108,7 @@ class KVv1CLI(KVCLI):
         self.kv = self.vault.secrets.kv.v1
 
     def delete_metadata_and_all_versions(self, path):
-        self.kv.delete_secret(path, mount_point=self.mount_point)
+        self.delete(path, versions=None)
 
     def read_secret_metadata(self, path):
         raise SecretVersion(
@@ -130,6 +130,17 @@ class KVv1CLI(KVCLI):
             raise ReadSecretVersion(
                 f'{self.mount_point} is KV {self.kv_version} and does not support --version')
         return self.kv.read_secret(path, mount_point=self.mount_point)['data']
+
+    def delete(self, path, versions):
+        if versions:
+            raise SecretVersion(
+                f'{self.mount_point} is KV {self.kv_version} and does not support --versions')
+        self.kv.delete_secret(path, mount_point=self.mount_point)
+        return 0
+
+    def undelete(self, path, versions):
+        raise SecretVersion(
+            f'{self.mount_point} is KV {self.kv_version} and does not support undelete')
 
 
 class KVv2CLI(KVCLI):
@@ -155,6 +166,19 @@ class KVv2CLI(KVCLI):
     def read_secret(self, path, version):
         return self.kv.read_secret_version(
             path, version=version, mount_point=self.mount_point)['data']['data']
+
+    def delete(self, path, versions):
+        if versions:
+            self.kv.delete_secret_versions(
+                path, versions=versions, mount_point=self.mount_point)
+        else:
+            self.kv.delete_latest_version_of_secret(path, mount_point=self.mount_point)
+        return 0
+
+    def undelete(self, path, versions):
+        self.kv.undelete_secret_versions(
+            path, versions=versions, mount_point=self.mount_point)
+        return 0
 
 
 class KvCommand(object):
@@ -204,6 +228,72 @@ class Get(KvCommand, ShowOne):
     def take_action(self, parsed_args):
         kv = kvcli_factory(self.app_args, parsed_args)
         return self.dict2columns(kv.read_secret(parsed_args.key, parsed_args.version))
+
+
+class Delete(KvCommand, Command):
+    """
+    Deletes the data for the provided version and path in the key-value store
+    The versioned data will not be fully removed, but marked as deleted and will no
+    longer be returned in normal get requests.
+
+    To delete the latest version of the key "foo":
+
+      $ hvac-cli kv delete secret/foo
+
+    To delete version 3 of key foo:
+
+      $ hvac-cli kv delete --versions=3 secret/foo
+    """
+
+    def get_parser(self, prog_name):
+        parser = super().get_parser(prog_name)
+        self.set_common_options(parser)
+        parser.add_argument(
+            '--versions',
+            help='The comma separate list of version numbers to delete',
+        )
+        parser.add_argument(
+            'key',
+            help='key to delete',
+        )
+        return parser
+
+    def take_action(self, parsed_args):
+        kv = kvcli_factory(self.app_args, parsed_args)
+        if parsed_args.versions:
+            versions = parsed_args.versions.split(',')
+        else:
+            versions = None
+        return kv.delete(parsed_args.key, versions)
+
+
+class Undelete(KvCommand, Command):
+    """
+    Undeletes the data for the provided version and path in the key-value store
+    This restores the data, allowing it to be returned on get requests.
+
+    To undelete version 3 of key "foo":
+
+      $ hvac-cli kv undelete --versions=3 secret/foo
+    """
+
+    def get_parser(self, prog_name):
+        parser = super().get_parser(prog_name)
+        self.set_common_options(parser)
+        parser.add_argument(
+            '--versions',
+            required=True,
+            help='The comma separate list of version numbers to delete',
+        )
+        parser.add_argument(
+            'key',
+            help='key to undelete',
+        )
+        return parser
+
+    def take_action(self, parsed_args):
+        kv = kvcli_factory(self.app_args, parsed_args)
+        return kv.undelete(parsed_args.key, parsed_args.versions.split(','))
 
 
 class Put(KvCommand, ShowOne):
