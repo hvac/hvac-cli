@@ -125,6 +125,10 @@ class KVv1CLI(KVCLI):
         path = self.sanitize(path)
         self.kv.create_or_update_secret(path, entry, mount_point=self.mount_point)
 
+    def patch(self, path, entry):
+        raise SecretVersion(
+            f'{self.mount_point} is KV {self.kv_version} and does not support patch')
+
     def read_secret(self, path, version):
         if version:
             raise ReadSecretVersion(
@@ -162,6 +166,10 @@ class KVv2CLI(KVCLI):
     def create_or_update_secret(self, path, entry, cas):
         path = self.sanitize(path)
         self.kv.create_or_update_secret(path, entry, cas=cas, mount_point=self.mount_point)
+
+    def patch(self, path, entry):
+        path = self.sanitize(path)
+        self.kv.patch(path, entry, mount_point=self.mount_point)
 
     def read_secret(self, path, version):
         return self.kv.read_secret_version(
@@ -296,7 +304,7 @@ class Undelete(KvCommand, Command):
         return kv.undelete(parsed_args.key, parsed_args.versions.split(','))
 
 
-class Put(KvCommand, ShowOne):
+class PutOrPatch(KvCommand, ShowOne):
     """
     Writes the data to the given path in the key-value store
     The data can be of any type.
@@ -311,14 +319,6 @@ class Put(KvCommand, ShowOne):
     def get_parser(self, prog_name):
         parser = super().get_parser(prog_name)
         self.set_common_options(parser)
-        parser.add_argument(
-            '--cas',
-            help=('Specifies to use a Check-And-Set operation. If not set the write will be '
-                  'allowed. If set to 0 a write will only be allowed if the key doesn’t '
-                  'exist. If the index is non-zero the write will only be allowed if '
-                  'the key’s current version matches the version specified in the cas '
-                  'parameter. (KvV2 only)'),
-        )
         parser.add_argument(
             '--file',
             help='A JSON object containing the secrets',
@@ -347,8 +347,54 @@ class Put(KvCommand, ShowOne):
             secrets = json.load(open(parsed_args.file))
         else:
             secrets = self.parse_kvs(parsed_args.kvs)
-        kv.create_or_update_secret(parsed_args.key, secrets, cas=parsed_args.cas)
+        self.kv_action(kv, parsed_args, secrets)
         return self.dict2columns(kv.read_secret(parsed_args.key, version=None))
+
+
+class Put(PutOrPatch):
+    """
+    Writes the data to the given path in the key-value store
+    The data can be of any type.
+
+      $ hvac-cli kv put secret/foo bar=baz
+
+    The data can also be consumed from a JSON file on disk. For example:
+
+      $ hvac-cli kv put secret/foo --file=/path/data.json
+     """
+
+    def get_parser(self, prog_name):
+        parser = super().get_parser(prog_name)
+        parser.add_argument(
+            '--cas',
+            help=('Specifies to use a Check-And-Set operation. If not set the write will be '
+                  'allowed. If set to 0 a write will only be allowed if the key doesn’t '
+                  'exist. If the index is non-zero the write will only be allowed if '
+                  'the key’s current version matches the version specified in the cas '
+                  'parameter. (KvV2 only)'),
+        )
+        return parser
+
+    def kv_action(self, kv, parsed_args, secrets):
+        kv.create_or_update_secret(parsed_args.key, secrets, cas=parsed_args.cas)
+
+
+class Patch(PutOrPatch):
+    """
+    Read the data from the given path and merge it with the data provided
+    If the existing data is a dictionary named OLD and the data provided
+    is a dictionary named NEW, the data stored is the merge of OLD and NEW.
+    If a key exists in both NEW and OLD, the one from NEW takes precedence.
+
+      $ hvac-cli kv patch secret/foo bar=baz
+
+    The data can also be consumed from a JSON file on disk. For example:
+
+      $ hvac-cli kv patch secret/foo --file=/path/data.json
+     """
+
+    def kv_action(self, kv, parsed_args, secrets):
+        kv.patch(parsed_args.key, secrets)
 
 
 class List(KvCommand, Lister):

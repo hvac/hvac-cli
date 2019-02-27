@@ -16,6 +16,19 @@ def test_put_get(vault_server, capsys):
     assert '| c     | d     |' in captured.out
 
 
+def test_patch(vault_server, capsys):
+    key = 'KEY'
+    assert main(['--token', vault_server['token'], '--address', vault_server['http'],
+                 'kv', 'put', key, 'a=b', 'c=d']) == 0
+    assert main(['--token', vault_server['token'], '--address', vault_server['http'],
+                 'kv', 'patch', key, 'a=B', 'e=f']) == 0
+    capsys.readouterr()
+    assert main(['--token', vault_server['token'], '--address', vault_server['http'],
+                 'kv', 'get', '--format=json', key]) == 0
+    captured = capsys.readouterr()
+    assert json.loads(captured.out) == {'a': 'B', 'c': 'd', 'e': 'f'}
+
+
 def test_put_file(vault_server, capsys):
     key = 'KEY'
     assert main(['--token', vault_server['token'], '--address', vault_server['http'],
