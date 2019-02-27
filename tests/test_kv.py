@@ -41,19 +41,23 @@ def test_sanitize_bug_6213(caplog):
     assert KVCLI.sanitize(path) == 'A B/C/ D'
     assert 'issues/6213' in caplog.text
 
-
-@pytest.mark.parametrize("version", ['1', '2'])
-def test_kv_version(vault_server, version):
-    path = 'mysecrets'
+def mount_kv(vault_server, mount_point, kv_version):
     client = hvac.Client(url=vault_server['http'], token=vault_server['token'])
-    client.sys.enable_secrets_engine(backend_type='kv', options={'version': version}, path=path)
+    client.sys.disable_secrets_engine(path=mount_point)
+    client.sys.enable_secrets_engine(
+        backend_type='kv', options={'version': kv_version}, path=mount_point)
+
+@pytest.mark.parametrize("kv_version", ['1', '2'])
+def test_kv_version(vault_server, kv_version):
+    mount_point = 'mysecrets/'
+    mount_kv(vault_server, mount_point, kv_version)
 
     CLI_args = mock.MagicMock()
     CLI_args.token = vault_server['token']
     CLI_args.address = vault_server['http']
     KV_args = mock.MagicMock()
-    KV_args.kv_version = version
-    KV_args.mount_point = 'mysecrets/'
+    KV_args.kv_version = kv_version
+    KV_args.mount_point = mount_point
     kv = KVCLI(CLI_args, KV_args)
 
     secret_key = 'my/key'
