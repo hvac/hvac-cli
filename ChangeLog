@@ -1,6 +1,17 @@
 CHANGES
 =======
 
+1.0.1
+-----
+
+* version 1.0.1
+* enforce 100% coverage
+* remove dead code
+* kv: implement put --file
+* kv: test put --cas
+* kv: rework KVCLI to KVv1CLI and KVv2CLI
+* kv: add the mount\_kv test helper
+
 1.0.0
 -----
 
