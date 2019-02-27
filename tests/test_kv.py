@@ -126,3 +126,45 @@ def test_read_secret_version_v2(vault_server):
     kv.erase()
     with pytest.raises(hvac.exceptions.InvalidPath):
         kv.read_secret(secret_key, None)
+
+
+def test_metadata_v1(vault_server):
+    mount_point = 'mysecrets'
+    mount_kv(vault_server, mount_point, '1')
+
+    CLI_args = mock.MagicMock()
+    CLI_args.token = vault_server['token']
+    CLI_args.address = vault_server['http']
+    KV_args = mock.MagicMock()
+    KV_args.kv_version = None
+    KV_args.mount_point = mount_point
+    kv = kvcli_factory(CLI_args, KV_args)
+
+    secret_key = 'my/key'
+    secret_value = {'field': 'value'}
+    kv.create_or_update_secret(secret_key, secret_value, cas=None)
+    with pytest.raises(SecretVersion):
+        kv.read_secret_metadata(secret_key)
+
+
+def test_metadata_v2(vault_server):
+    mount_point = 'mysecrets'
+    mount_kv(vault_server, mount_point, '2')
+
+    CLI_args = mock.MagicMock()
+    CLI_args.token = vault_server['token']
+    CLI_args.address = vault_server['http']
+    KV_args = mock.MagicMock()
+    KV_args.kv_version = None
+    KV_args.mount_point = mount_point
+    kv = kvcli_factory(CLI_args, KV_args)
+
+    secret_key = 'my/key'
+    secret_value = {'field': 'value'}
+    kv.create_or_update_secret(secret_key, secret_value, cas=None)
+    metadata = kv.read_secret_metadata(secret_key)
+    assert metadata['data']['cas_required'] is False
+    assert metadata['data']['max_versions'] == 0
+    kv.delete_metadata_and_all_versions(secret_key)
+    with pytest.raises(hvac.exceptions.InvalidPath):
+        kv.read_secret(secret_key, None)

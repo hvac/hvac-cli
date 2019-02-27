@@ -66,6 +66,16 @@ def test_metadata_delete(vault_server):
                  'kv', 'get', key]) == 1
 
 
+def test_metadata_get(vault_server):
+    key = 'KEY'
+    assert main(['--token', vault_server['token'], '--address', vault_server['http'],
+                 'kv', 'put', key, 'a=b']) == 0
+    metadata = main(['--token', vault_server['token'], '--address', vault_server['http'],
+                     'kv', 'metadata', 'get', key])
+    assert metadata['data']['cas_required'] is False
+    assert metadata['data']['max_versions'] == 0
+
+
 def test_erase(vault_server):
     key = 'KEY'
     assert main(['--token', vault_server['token'], '--address', vault_server['http'],

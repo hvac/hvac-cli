@@ -110,6 +110,10 @@ class KVv1CLI(KVCLI):
     def delete_metadata_and_all_versions(self, path):
         self.kv.delete_secret(path, mount_point=self.mount_point)
 
+    def read_secret_metadata(self, path):
+        raise SecretVersion(
+            f'{self.mount_point} is KV {self.kv_version} and does not support metadata')
+
     def create_or_update_secret(self, path, entry, cas):
         if cas:
             raise SecretVersion(
@@ -132,6 +136,9 @@ class KVv2CLI(KVCLI):
 
     def delete_metadata_and_all_versions(self, path):
         self.kv.delete_metadata_and_all_versions(path, mount_point=self.mount_point)
+
+    def read_secret_metadata(self, path):
+        return self.kv.read_secret_metadata(path, mount_point=self.mount_point)
 
     def create_or_update_secret(self, path, entry, cas):
         path = self.sanitize(path)
@@ -332,3 +339,27 @@ class MetadataDelete(KvCommand, Command):
     def take_action(self, parsed_args):
         kv = kvcli_factory(self.app_args, parsed_args)
         return kv.delete_metadata_and_all_versions(parsed_args.key)
+
+
+class MetadataGet(KvCommand, ShowOne):
+    """
+    (KvV2 only) Retrieves the metadata from Vault's key-value store at
+    the given key name. If no key exists with that name, an error is
+    returned.
+
+      $ hvac-cli kv metadata get secret/foo
+
+    """
+
+    def get_parser(self, prog_name):
+        parser = super().get_parser(prog_name)
+        self.set_common_options(parser)
+        parser.add_argument(
+            'key',
+            help='get metadata for this key',
+        )
+        return parser
+
+    def take_action(self, parsed_args):
+        kv = kvcli_factory(self.app_args, parsed_args)
+        return self.dict2columns(kv.read_secret_metadata(parsed_args.key))
