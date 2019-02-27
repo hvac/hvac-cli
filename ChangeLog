@@ -1,6 +1,15 @@
 CHANGES
 =======
 
+1.0.3
+-----
+
+* version 1.0.3
+* kv: fix typo in undelete
+* kv: implement kv rollback
+* kv: implement kv destroy
+* kv: implement kv patch
+
 1.0.2
 -----
 
