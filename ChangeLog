@@ -1,6 +1,16 @@
 CHANGES
 =======
 
+1.0.2
+-----
+
+* version 1.0.2
+* kv: implement kv delete & kv undelete
+* various cosmetic documentation fixes
+* kv: implement kv metadata put
+* kv: sort entry points
+* kv: implement kv metadata get
+
 1.0.1
 -----
 
