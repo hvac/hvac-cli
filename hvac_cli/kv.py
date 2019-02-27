@@ -225,7 +225,7 @@ class KvCommand(object):
 
 class Get(KvCommand, ShowOne):
     """
-    Retrieves the value from Vault's key-value store at the given key name
+    Retrieves the value from Vault key-value store at the given key name
     If no key exists with that name, an error is returned. If a key exists with that
     name but has no data, nothing is returned.
 
@@ -235,6 +235,7 @@ class Get(KvCommand, ShowOne):
     flag:
 
       $ hvac-cli kv get --version=1 secret/foo
+
     """
 
     def get_parser(self, prog_name):
@@ -268,6 +269,7 @@ class Delete(KvCommand, Command):
     To delete version 3 of key foo:
 
       $ hvac-cli kv delete --versions=3 secret/foo
+
     """
 
     def get_parser(self, prog_name):
@@ -294,12 +296,13 @@ class Delete(KvCommand, Command):
 
 class Destroy(KvCommand, Command):
     """
-    Permanently removes the specified versions' data from the key-value store
+    Permanently removes the specified versions data from the key-value store
     If  no key exists at the path, no action is taken.
 
     To destroy version 3 of key foo:
 
       $ hvac-cli kv destroy --versions=3 secret/foo
+
     """
 
     def get_parser(self, prog_name):
@@ -329,6 +332,7 @@ class Undelete(KvCommand, Command):
     To undelete version 3 of key "foo":
 
       $ hvac-cli kv undelete --versions=3 secret/foo
+
     """
 
     def get_parser(self, prog_name):
@@ -358,6 +362,7 @@ class Rollback(KvCommand, Command):
     version 6.
 
       $ hvac-cli kv rollback --version=2 secret/foo
+
     """
 
     def get_parser(self, prog_name):
@@ -389,6 +394,7 @@ class PutOrPatch(KvCommand, ShowOne):
     The data can also be consumed from a JSON file on disk. For example:
 
       $ hvac-cli kv put secret/foo --file=/path/data.json
+
      """
 
     def get_parser(self, prog_name):
@@ -436,6 +442,7 @@ class Put(PutOrPatch):
     The data can also be consumed from a JSON file on disk. For example:
 
       $ hvac-cli kv put secret/foo --file=/path/data.json
+
      """
 
     def get_parser(self, prog_name):
@@ -466,7 +473,8 @@ class Patch(PutOrPatch):
     The data can also be consumed from a JSON file on disk. For example:
 
       $ hvac-cli kv patch secret/foo --file=/path/data.json
-     """
+
+    """
 
     def kv_action(self, kv, parsed_args, secrets):
         kv.patch(parsed_args.key, secrets)
@@ -474,11 +482,12 @@ class Patch(PutOrPatch):
 
 class List(KvCommand, Lister):
     """
-    Lists data from Vault's key-value store at the given path.
+    Lists data from Vault key-value store at the given path.
 
     List values under the "my-app" folder of the key-value store:
 
       $ hvac-cli kv list secret/my-app/
+
     """
 
     def get_parser(self, prog_name):
@@ -498,12 +507,13 @@ class List(KvCommand, Lister):
 
 class Dump(KvCommand, Command):
     """Dump all secrets as a JSON object where the keys are the path
-    and the values are the secrets. For instance:
+    and the values are the secrets. For instance::
 
-    {
-      "a/secret/path": { "key1": "value1" },
-      "another/secret/path": { "key2": "value2" }
-    }
+        {
+          "a/secret/path": { "key1": "value1" },
+          "another/secret/path": { "key2": "value2" }
+        }
+
     """
 
     def get_parser(self, prog_name):
@@ -518,12 +528,13 @@ class Dump(KvCommand, Command):
 
 class Load(KvCommand, Command):
     """Load secrets from a JSON object for which the key is the path
-    and the value is the secret. For instance:
+    and the value is the secret. For instance::
 
-    {
-      "a/secret/path": { "key1": "value1" },
-      "another/secret/path": { "key2": "value2" }
-    }
+        {
+          "a/secret/path": { "key1": "value1" },
+          "another/secret/path": { "key2": "value2" }
+        }
+
     """
 
     def get_parser(self, prog_name):
@@ -558,6 +569,7 @@ class MetadataDelete(KvCommand, Command):
     Deletes all versions and metadata for the provided key
 
       $ hvac-cli kv metadata delete secret/foo
+
     """
 
     def get_parser(self, prog_name):
@@ -576,12 +588,13 @@ class MetadataDelete(KvCommand, Command):
 
 class MetadataGet(KvCommand, ShowOne):
     """
-    Retrieves the metadata from Vault's key-value store at the given key name
+    Retrieves the metadata from Vault key-value store at the given key name
     If no key exists with that name, an error is returned.
 
       $ hvac-cli kv metadata get secret/foo
 
     This command only works with KVv2
+
     """
 
     def get_parser(self, prog_name):
