@@ -198,20 +198,9 @@ class Put(KvCommand, ShowOne):
 
           $ hvac-cli kv put secret/foo bar=baz
 
-      The data can also be consumed from a file on disk by prefixing with the "@"
-      symbol. For example:
+      The data can also be consumed from a JSON file on disk. For example:
 
-          $ hvac-cli kv put secret/foo @data.json
-
-      Or it can be read from stdin using the "-" symbol:
-
-          $ echo "abcd1234" | vault kv put secret/foo bar=-
-
-      To perform a Check-And-Set operation, specify the -cas flag with the
-      appropriate version number corresponding to the key you want to perform
-      the CAS operation on:
-
-          $ hvac-cli kv put -cas=1 secret/foo bar=baz
+          $ hvac-cli kv put secret/foo --file=/path/data.json
      """
 
     def get_parser(self, prog_name):
@@ -226,13 +215,17 @@ class Put(KvCommand, ShowOne):
                   'parameter. (KvV2 only)'),
         )
         parser.add_argument(
+            '--file',
+            help='A JSON object containing the secrets',
+        )
+        parser.add_argument(
             'key',
             help='key to set',
         )
         parser.add_argument(
             'kvs',
             nargs='*',
-            help='k=v',
+            help='k=v secrets that can be repeated. They are ignored if --file is set.',
         )
         return parser
 
@@ -245,9 +238,11 @@ class Put(KvCommand, ShowOne):
 
     def take_action(self, parsed_args):
         kv = kvcli_factory(self.app_args, parsed_args)
-        kv.create_or_update_secret(parsed_args.key,
-                                   self.parse_kvs(parsed_args.kvs),
-                                   cas=parsed_args.cas)
+        if parsed_args.file:
+            secrets = json.load(open(parsed_args.file))
+        else:
+            secrets = self.parse_kvs(parsed_args.kvs)
+        kv.create_or_update_secret(parsed_args.key, secrets, cas=parsed_args.cas)
         return self.dict2columns(kv.read_secret(parsed_args.key, version=None))
 
 

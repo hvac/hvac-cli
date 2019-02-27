@@ -7,12 +7,22 @@ from hvac_cli.cmd import main
 def test_put_get(vault_server, capsys):
     key = 'KEY'
     assert main(['--token', vault_server['token'], '--address', vault_server['http'],
-                 'kv', 'put', key, 'a=b']) == 0
+                 'kv', 'put', key, 'a=b', 'c=d']) == 0
     capsys.readouterr()
     assert main(['--token', vault_server['token'], '--address', vault_server['http'],
                  'kv', 'get', key]) == 0
     captured = capsys.readouterr()
     assert '| a     | b     |' in captured.out
+    assert '| c     | d     |' in captured.out
+
+
+def test_put_file(vault_server, capsys):
+    key = 'KEY'
+    assert main(['--token', vault_server['token'], '--address', vault_server['http'],
+                 'kv', 'put', '--format=json', key, 'E=F', '--file=tests/secrets.json']) == 0
+    captured = capsys.readouterr()
+    print(captured.out)
+    assert json.loads(captured.out) == {'DIR/SECRET': {'a': 'b'}}
 
 
 def test_list(vault_server, capsys):
