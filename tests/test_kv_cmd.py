@@ -66,14 +66,26 @@ def test_metadata_delete(vault_server):
                  'kv', 'get', key]) == 1
 
 
-def test_metadata_get(vault_server):
+def test_metadata_get_put(vault_server, capsys):
     key = 'KEY'
     assert main(['--token', vault_server['token'], '--address', vault_server['http'],
                  'kv', 'put', key, 'a=b']) == 0
-    metadata = main(['--token', vault_server['token'], '--address', vault_server['http'],
-                     'kv', 'metadata', 'get', key])
+    captured = capsys.readouterr()
+
+    assert main(['--token', vault_server['token'], '--address', vault_server['http'],
+                 'kv', 'metadata', 'get', '--format=json', key]) == 0
+    captured = capsys.readouterr()
+    metadata = json.loads(captured.out)
     assert metadata['data']['cas_required'] is False
     assert metadata['data']['max_versions'] == 0
+
+    assert main(['--token', vault_server['token'], '--address', vault_server['http'],
+                 'kv', 'metadata', 'put', '--format=json',
+                 '--cas-required=true', '--max-versions=5', key]) == 0
+    captured = capsys.readouterr()
+    metadata = json.loads(captured.out)
+    assert metadata['data']['cas_required'] is True
+    assert metadata['data']['max_versions'] == 5
 
 
 def test_erase(vault_server):

@@ -114,6 +114,10 @@ class KVv1CLI(KVCLI):
         raise SecretVersion(
             f'{self.mount_point} is KV {self.kv_version} and does not support metadata')
 
+    def update_metadata(self, path, max_version, cas_required):
+        raise SecretVersion(
+            f'{self.mount_point} is KV {self.kv_version} and does not support metadata')
+
     def create_or_update_secret(self, path, entry, cas):
         if cas:
             raise SecretVersion(
@@ -139,6 +143,10 @@ class KVv2CLI(KVCLI):
 
     def read_secret_metadata(self, path):
         return self.kv.read_secret_metadata(path, mount_point=self.mount_point)
+
+    def update_metadata(self, path, max_versions, cas_required):
+        self.kv.update_metadata(path, max_versions, cas_required, mount_point=self.mount_point)
+        return self.read_secret_metadata(path)
 
     def create_or_update_secret(self, path, entry, cas):
         path = self.sanitize(path)
@@ -363,3 +371,53 @@ class MetadataGet(KvCommand, ShowOne):
     def take_action(self, parsed_args):
         kv = kvcli_factory(self.app_args, parsed_args)
         return self.dict2columns(kv.read_secret_metadata(parsed_args.key))
+
+
+class MetadataPut(KvCommand, ShowOne):
+    """
+    Create a blank key or update the associated metadata
+
+    Create a key in the key-value store with no data:
+
+      $ hvac-cli kv metadata put secret/foo
+
+    Set a max versions setting on the key:
+
+      $ hvac-cli kv metadata put --max-versions=5 secret/foo
+
+    Require Check-and-Set for this key:
+
+      $ hvac-cli kv metadata put --cas-required=true secret/foo
+
+    This command only works with KVv2
+    """
+
+    def get_parser(self, prog_name):
+        parser = super().get_parser(prog_name)
+        self.set_common_options(parser)
+        parser.add_argument(
+            '--cas-required',
+            type=bool,
+            default=False,
+            help=('If true the key will require the cas parameter to be set on all write '
+                  'requests. If false, the backend’s configuration will be used. The '
+                  'default is false.')
+        )
+        parser.add_argument(
+            '--max-versions',
+            type=int,
+            help=('The number of versions to keep. If not set, the backend’s configured '
+                  'max version is used.')
+        )
+        parser.add_argument(
+            'key',
+            help='set metadata for this key',
+        )
+        return parser
+
+    def take_action(self, parsed_args):
+        kv = kvcli_factory(self.app_args, parsed_args)
+        r = kv.update_metadata(parsed_args.key,
+                               parsed_args.max_versions,
+                               parsed_args.cas_required)
+        return self.dict2columns(r)

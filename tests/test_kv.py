@@ -145,6 +145,8 @@ def test_metadata_v1(vault_server):
     kv.create_or_update_secret(secret_key, secret_value, cas=None)
     with pytest.raises(SecretVersion):
         kv.read_secret_metadata(secret_key)
+    with pytest.raises(SecretVersion):
+        kv.update_metadata(secret_key, None, None)
 
 
 def test_metadata_v2(vault_server):
@@ -162,9 +164,15 @@ def test_metadata_v2(vault_server):
     secret_key = 'my/key'
     secret_value = {'field': 'value'}
     kv.create_or_update_secret(secret_key, secret_value, cas=None)
+    kv.update_metadata(secret_key, None, None)
     metadata = kv.read_secret_metadata(secret_key)
-    assert metadata['data']['cas_required'] is False
     assert metadata['data']['max_versions'] == 0
+    assert metadata['data']['cas_required'] is False
+    max_versions = 5
+    cas_required = True
+    metadata = kv.update_metadata(secret_key, max_versions, cas_required)
+    assert metadata['data']['max_versions'] == max_versions
+    assert metadata['data']['cas_required'] == cas_required
     kv.delete_metadata_and_all_versions(secret_key)
     with pytest.raises(hvac.exceptions.InvalidPath):
-        kv.read_secret(secret_key, None)
+        kv.read_secret_metadata(secret_key)
