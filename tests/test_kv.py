@@ -1,6 +1,6 @@
 import logging
 import hvac
-from hvac_cli.kv import KVCLI, kvcli_factory, ReadSecretVersion
+from hvac_cli.kv import KVCLI, kvcli_factory, ReadSecretVersion, SecretVersion
 import mock
 import pytest
 
@@ -87,6 +87,8 @@ def test_read_secret_version_v1(vault_server):
     secret_key = 'my/key'
     secret_value = {'field': 'value'}
     version = None
+    with pytest.raises(SecretVersion):
+        kv.create_or_update_secret(secret_key, secret_value, cas=1)
     kv.create_or_update_secret(secret_key, secret_value, cas=None)
     assert kv.read_secret(secret_key, version) == secret_value
     with pytest.raises(ReadSecretVersion):
@@ -112,7 +114,15 @@ def test_read_secret_version_v2(vault_server):
     secret_value = {'field': 'value'}
     kv.create_or_update_secret(secret_key, secret_value, cas=None)
     assert kv.read_secret(secret_key, None) == secret_value
-    assert kv.read_secret(secret_key, 0) == secret_value
+    assert kv.read_secret(secret_key, 1) == secret_value
+    with pytest.raises(hvac.exceptions.InvalidPath):
+        kv.read_secret(secret_key, 2)
+    with pytest.raises(hvac.exceptions.InvalidRequest):
+        kv.create_or_update_secret(secret_key, secret_value, cas=0)
+    with pytest.raises(hvac.exceptions.InvalidRequest):
+        kv.create_or_update_secret(secret_key, secret_value, cas=2)
+    kv.create_or_update_secret(secret_key, secret_value, cas=1)
+    assert kv.read_secret(secret_key, 2) == secret_value
     kv.erase()
     with pytest.raises(hvac.exceptions.InvalidPath):
         kv.read_secret(secret_key, None)
