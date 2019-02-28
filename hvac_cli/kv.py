@@ -37,6 +37,7 @@ class KVCLI(CLI):
         super().__init__(super_args)
         self.kv_version = args.kv_version
         self.mount_point = args.mount_point
+        self.rewrite_key = getattr(args, 'rewrite_key', None)
 
     @staticmethod
     def sanitize(path):
@@ -122,8 +123,10 @@ class KVv1CLI(KVCLI):
         if cas:
             raise SecretVersion(
                 f'{self.mount_point} is KV {self.kv_version} and does not support --cas')
-        path = self.sanitize(path)
+        if self.rewrite_key:
+            path = self.sanitize(path)
         self.kv.create_or_update_secret(path, entry, mount_point=self.mount_point)
+        return path
 
     def patch(self, path, entry):
         raise SecretVersion(
@@ -172,12 +175,16 @@ class KVv2CLI(KVCLI):
         return self.read_secret_metadata(path)
 
     def create_or_update_secret(self, path, entry, cas):
-        path = self.sanitize(path)
+        if self.rewrite_key:
+            path = self.sanitize(path)
         self.kv.create_or_update_secret(path, entry, cas=cas, mount_point=self.mount_point)
+        return path
 
     def patch(self, path, entry):
-        path = self.sanitize(path)
+        if self.rewrite_key:
+            path = self.sanitize(path)
         self.kv.patch(path, entry, mount_point=self.mount_point)
+        return path
 
     def read_secret(self, path, version):
         return self.kv.read_secret_version(
@@ -207,6 +214,17 @@ class KVv2CLI(KVCLI):
 
 
 class KvCommand(object):
+
+    def set_rewrite_key(self, parser):
+        parser.add_argument(
+            '--rewrite-key',
+            action='store_true',
+            help=('Rewrite the key to avoid UI problems and print a warning. '
+                  'Workaround https://github.com/hashicorp/vault/issues/6282; '
+                  'https://github.com/hashicorp/vault/issues/6213; replace '
+                  'control characters and % with an underscore'
+                  )
+        )
 
     def set_common_options(self, parser):
         parser.add_argument(
@@ -400,6 +418,7 @@ class PutOrPatch(KvCommand, ShowOne):
     def get_parser(self, prog_name):
         parser = super().get_parser(prog_name)
         self.set_common_options(parser)
+        self.set_rewrite_key(parser)
         parser.add_argument(
             '--file',
             help='A JSON object containing the secrets',
@@ -428,8 +447,8 @@ class PutOrPatch(KvCommand, ShowOne):
             secrets = json.load(open(parsed_args.file))
         else:
             secrets = self.parse_kvs(parsed_args.kvs)
-        self.kv_action(kv, parsed_args, secrets)
-        return self.dict2columns(kv.read_secret(parsed_args.key, version=None))
+        path = self.kv_action(kv, parsed_args, secrets)
+        return self.dict2columns(kv.read_secret(path, version=None))
 
 
 class Put(PutOrPatch):
@@ -458,7 +477,7 @@ class Put(PutOrPatch):
         return parser
 
     def kv_action(self, kv, parsed_args, secrets):
-        kv.create_or_update_secret(parsed_args.key, secrets, cas=parsed_args.cas)
+        return kv.create_or_update_secret(parsed_args.key, secrets, cas=parsed_args.cas)
 
 
 class Patch(PutOrPatch):
@@ -477,7 +496,7 @@ class Patch(PutOrPatch):
     """
 
     def kv_action(self, kv, parsed_args, secrets):
-        kv.patch(parsed_args.key, secrets)
+        return kv.patch(parsed_args.key, secrets)
 
 
 class List(KvCommand, Lister):
@@ -540,6 +559,7 @@ class Load(KvCommand, Command):
     def get_parser(self, prog_name):
         parser = super().get_parser(prog_name)
         self.set_common_options(parser)
+        self.set_rewrite_key(parser)
         parser.add_argument(
             'path',
             help='path containing secrets in JSON',

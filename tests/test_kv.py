@@ -109,6 +109,7 @@ def test_read_secret_version_v2(vault_server):
     KV_args = mock.MagicMock()
     KV_args.kv_version = None
     KV_args.mount_point = mount_point
+    KV_args.rewrite_key = True
     kv = kvcli_factory(CLI_args, KV_args)
 
     secret_key = 'my/key'
@@ -274,6 +275,7 @@ def test_patch_version_v2(vault_server):
     KV_args = mock.MagicMock()
     KV_args.kv_version = None
     KV_args.mount_point = mount_point
+    KV_args.rewrite_key = True
     kv = kvcli_factory(CLI_args, KV_args)
 
     secret_key = 'my/key'
