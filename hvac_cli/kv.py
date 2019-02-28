@@ -238,18 +238,20 @@ class KVv2CLI(KVCLI):
 
 class KvCommand(object):
 
-    def set_rewrite_key(self, parser):
+    @staticmethod
+    def set_rewrite_key(parser):
         parser.add_argument(
             '--rewrite-key',
             action='store_true',
             help=('Rewrite the key to avoid UI problems and print a warning. '
                   'Workaround https://github.com/hashicorp/vault/issues/6282; '
                   'https://github.com/hashicorp/vault/issues/6213; replace '
-                  'control characters and % with an underscore'
+                  'control characters and percent with an underscore'
                   )
         )
 
-    def set_common_options(self, parser):
+    @staticmethod
+    def set_common_options(parser):
         parser.add_argument(
             '--mount-point',
             default='secret',
