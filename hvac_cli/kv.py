@@ -234,7 +234,11 @@ class KVv2CLI(KVCLI):
         return 0
 
     def rollback(self, path, version):
-        entry = self.read_secret(path, version=version)
+        try:
+            entry = self.read_secret(path, version=version)
+        except Exception:
+            logger.error(f'failed to read_secret {path} at version {version}')
+            raise
         logger.info(f'rollback {path} from version {version}')
         if not self.args.dry_run:
             self.kv.create_or_update_secret(path, entry, mount_point=self.mount_point)

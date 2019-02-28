@@ -386,7 +386,8 @@ def test_rollback_version_v1(vault_server):
         kv.rollback(secret_key, version='1')
 
 
-def test_rollback_version_v2(vault_server):
+def test_rollback_version_v2(vault_server, caplog):
+    caplog.set_level(logging.INFO, 'hvac_cli')
     mount_point = 'mysecrets'
     mount_kv(vault_server, mount_point, '2')
 
@@ -409,6 +410,10 @@ def test_rollback_version_v2(vault_server):
         kv.read_secret(secret_key, '4')
     kv.rollback(secret_key, '2')
     assert kv.read_secret(secret_key, '4') == {'field': '2'}
+    caplog.clear()
+    with pytest.raises(hvac.exceptions.InvalidPath):
+        kv.rollback(secret_key, '20')
+    assert 'at version 20' in caplog.text
 
 
 def test_dry_run_version_v1(vault_server):
