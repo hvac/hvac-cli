@@ -180,7 +180,11 @@ class KVv2CLI(KVCLI):
         return 0
 
     def read_secret_metadata(self, path):
-        return self.kv.read_secret_metadata(path, mount_point=self.mount_point)
+        try:
+            return self.kv.read_secret_metadata(path, mount_point=self.mount_point)
+        except Exception:
+            logger.error(f'failed to read metadata for {path}')
+            raise
 
     def update_metadata(self, path, max_versions, cas_required):
         logger.info(f'set metadata for {path}')

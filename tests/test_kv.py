@@ -166,7 +166,7 @@ def test_metadata_v1(vault_server):
         kv.update_metadata(secret_key, None, None)
 
 
-def test_metadata_v2(vault_server):
+def test_metadata_v2(vault_server, caplog):
     mount_point = 'mysecrets'
     mount_kv(vault_server, mount_point, '2')
 
@@ -194,6 +194,11 @@ def test_metadata_v2(vault_server):
     kv.delete_metadata_and_all_versions(secret_key)
     with pytest.raises(hvac.exceptions.InvalidPath):
         kv.read_secret_metadata(secret_key)
+
+    caplog.clear()
+    with pytest.raises(hvac.exceptions.InvalidPath):
+        kv.read_secret_metadata('doesnotexist')
+    assert 'failed to read metadata' in caplog.text
 
 
 def test_delete_version_v1(vault_server):
