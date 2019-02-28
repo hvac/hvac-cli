@@ -16,6 +16,19 @@ def test_put_get(vault_server, capsys):
     assert '| c     | d     |' in captured.out
 
 
+def test_get_from_version(vault_server, capsys):
+    key = 'KEY'
+    for i in ('1', '2'):
+        assert main(['--token', vault_server['token'], '--address', vault_server['http'],
+                     'kv', 'put', key, f'a={i}']) == 0
+
+    capsys.readouterr()
+    assert main(['--token', vault_server['token'], '--address', vault_server['http'],
+                 'kv', 'get', '--format=json', '--from-version', '1', key]) == 0
+    captured = capsys.readouterr()
+    assert json.loads(captured.out) == {'a': '1'}
+
+
 def test_put_rewrite_key(vault_server, capsys):
     key = 'A / B'
     assert main(['--token', vault_server['token'], '--address', vault_server['http'],

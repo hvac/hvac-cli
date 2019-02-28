@@ -142,7 +142,7 @@ class KVv1CLI(KVCLI):
     def read_secret(self, path, version):
         if version:
             raise ReadSecretVersion(
-                f'{self.mount_point} is KV {self.kv_version} and does not support --version')
+                f'{self.mount_point} is KV {self.kv_version} and does not support --from-version')
         return self.kv.read_secret(path, mount_point=self.mount_point)['data']
 
     def destroy(self, path, versions):
@@ -279,10 +279,10 @@ class Get(KvCommand, ShowOne):
 
       $ hvac-cli kv get secret/foo
 
-    To view the given key name at a specific version in time, specify the "--version"
+    To view the given key name at a specific version in time, specify the "--from-version"
     flag:
 
-      $ hvac-cli kv get --version=1 secret/foo
+      $ hvac-cli kv get --from-version=1 secret/foo
 
     """
 
@@ -290,7 +290,7 @@ class Get(KvCommand, ShowOne):
         parser = super().get_parser(prog_name)
         self.set_common_options(parser)
         parser.add_argument(
-            '--version',
+            '--from-version',
             help='If passed, the value at the version number will be returned. (KvV2 only)',
         )
         parser.add_argument(
@@ -301,7 +301,7 @@ class Get(KvCommand, ShowOne):
 
     def take_action(self, parsed_args):
         kv = kvcli_factory(self.app_args, parsed_args)
-        return self.dict2columns(kv.read_secret(parsed_args.key, parsed_args.version))
+        return self.dict2columns(kv.read_secret(parsed_args.key, parsed_args.from_version))
 
 
 class Delete(KvCommand, Command):
@@ -409,7 +409,7 @@ class Rollback(KvCommand, Command):
     is 5 and the rollback version is 2, the data from version 2 will become
     version 6.
 
-      $ hvac-cli kv rollback --version=2 secret/foo
+      $ hvac-cli kv rollback --from-version=2 secret/foo
 
     """
 
