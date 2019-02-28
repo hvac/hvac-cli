@@ -1,6 +1,14 @@
 CHANGES
 =======
 
+1.0.5
+-----
+
+* version 1.0.5
+* implement --dry-run
+* kv: implement --rewrite-key
+* doc: remove redundant toc
+
 1.0.4
 -----
 
