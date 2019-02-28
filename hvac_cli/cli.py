@@ -7,6 +7,9 @@ class CLI(object):
         self.args = args
         self.open_vault()
 
+    def list_mounts(self):
+        return self.vault.sys.list_mounted_secrets_engines()['data']
+
     def open_vault(self):
         if self.args.tls_skip_verify:
             verify = False

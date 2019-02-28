@@ -21,9 +21,14 @@ class SecretVersion(Exception):
 def kvcli_factory(super_args, args):
     cli = CLI(super_args)
     if not args.kv_version:
-        mounts = cli.vault.sys.list_mounted_secrets_engines()['data']
+        try:
+            mounts = cli.list_mounts()
+        except Exception:
+            logger.error('failed to read sys/mount to determine the KV version, '
+                         'try setting --kv-version')
+            raise
         path = args.mount_point + '/'
-        assert path in mounts, f'path {path} is not founds in mounts {mounts}'
+        assert path in mounts, f'path {path} is not found in mounts {mounts}'
         args.kv_version = mounts[path]['options']['version']
     if args.kv_version == '1':
         return KVv1CLI(super_args, args)

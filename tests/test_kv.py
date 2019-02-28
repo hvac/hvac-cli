@@ -6,6 +6,17 @@ import mock
 import pytest
 
 
+def test_kvcli_factory(mocker, caplog):
+    caplog.set_level(logging.INFO, 'hvac_cli')
+    mocker.patch('hvac_cli.kv.kvcli_factory')
+    mocker.patch('hvac_cli.kv.CLI.list_mounts', side_effect=ValueError)
+    args = mock.MagicMock()
+    args.kv_version = None
+    with pytest.raises(ValueError):
+        kvcli_factory(args, args)
+    assert 'failed to read sys/mount to determine' in caplog.text
+
+
 def test_sanitize_do_nothing():
     assert KVCLI.sanitize('a/b/c') == 'a/b/c'
     path = 'éà'
