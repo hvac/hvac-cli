@@ -27,6 +27,11 @@ class HvacApp(App):
     def build_option_parser(self, description, version, argparse_kwargs=None):
         parser = super().build_option_parser(description, version, argparse_kwargs)
         parser.add_argument(
+            '--dry-run',
+            action='store_true',
+            help='Show what would be done but do nothing'
+        )
+        parser.add_argument(
             '--token',
             required=False,
             default=os.getenv('VAULT_TOKEN'),

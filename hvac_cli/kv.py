@@ -125,7 +125,9 @@ class KVv1CLI(KVCLI):
                 f'{self.mount_point} is KV {self.kv_version} and does not support --cas')
         if self.rewrite_key:
             path = self.sanitize(path)
-        self.kv.create_or_update_secret(path, entry, mount_point=self.mount_point)
+        logger.info(f'put {path} {list(entry.keys())}')
+        if not self.args.dry_run:
+            self.kv.create_or_update_secret(path, entry, mount_point=self.mount_point)
         return path
 
     def patch(self, path, entry):
@@ -146,7 +148,9 @@ class KVv1CLI(KVCLI):
         if versions:
             raise SecretVersion(
                 f'{self.mount_point} is KV {self.kv_version} and does not support --versions')
-        self.kv.delete_secret(path, mount_point=self.mount_point)
+        logger.info(f'permanently delete {path}')
+        if not self.args.dry_run:
+            self.kv.delete_secret(path, mount_point=self.mount_point)
         return 0
 
     def undelete(self, path, versions):
@@ -165,25 +169,34 @@ class KVv2CLI(KVCLI):
         self.kv = self.vault.secrets.kv.v2
 
     def delete_metadata_and_all_versions(self, path):
-        self.kv.delete_metadata_and_all_versions(path, mount_point=self.mount_point)
+        logger.info(f'permanently delete metadata and all versions for {path}')
+        if not self.args.dry_run:
+            self.kv.delete_metadata_and_all_versions(path, mount_point=self.mount_point)
+        return 0
 
     def read_secret_metadata(self, path):
         return self.kv.read_secret_metadata(path, mount_point=self.mount_point)
 
     def update_metadata(self, path, max_versions, cas_required):
-        self.kv.update_metadata(path, max_versions, cas_required, mount_point=self.mount_point)
+        logger.info(f'set metadata for {path}')
+        if not self.args.dry_run:
+            self.kv.update_metadata(path, max_versions, cas_required, mount_point=self.mount_point)
         return self.read_secret_metadata(path)
 
     def create_or_update_secret(self, path, entry, cas):
         if self.rewrite_key:
             path = self.sanitize(path)
-        self.kv.create_or_update_secret(path, entry, cas=cas, mount_point=self.mount_point)
+        logger.info(f'put {path} {list(entry.keys())}')
+        if not self.args.dry_run:
+            self.kv.create_or_update_secret(path, entry, cas=cas, mount_point=self.mount_point)
         return path
 
     def patch(self, path, entry):
         if self.rewrite_key:
             path = self.sanitize(path)
-        self.kv.patch(path, entry, mount_point=self.mount_point)
+        logger.info(f'patch {path} {list(entry.keys())}')
+        if not self.args.dry_run:
+            self.kv.patch(path, entry, mount_point=self.mount_point)
         return path
 
     def read_secret(self, path, version):
@@ -191,25 +204,35 @@ class KVv2CLI(KVCLI):
             path, version=version, mount_point=self.mount_point)['data']['data']
 
     def destroy(self, path, versions):
-        self.kv.destroy_secret_versions(path, versions, mount_point=self.mount_point)
+        logger.info(f'permanently delete (i.e. destroy) {path} at versions {versions}')
+        if not self.args.dry_run:
+            self.kv.destroy_secret_versions(path, versions, mount_point=self.mount_point)
         return 0
 
     def delete(self, path, versions):
         if versions:
-            self.kv.delete_secret_versions(
-                path, versions=versions, mount_point=self.mount_point)
+            logger.info(f'delete (can undelete later) {path} at versions {versions}')
+            if not self.args.dry_run:
+                self.kv.delete_secret_versions(
+                    path, versions=versions, mount_point=self.mount_point)
         else:
-            self.kv.delete_latest_version_of_secret(path, mount_point=self.mount_point)
+            logger.info(f'delete (can undelete later) the most recent version of {path}')
+            if not self.args.dry_run:
+                self.kv.delete_latest_version_of_secret(path, mount_point=self.mount_point)
         return 0
 
     def undelete(self, path, versions):
-        self.kv.undelete_secret_versions(
-            path, versions=versions, mount_point=self.mount_point)
+        logger.info(f'undelete  {path} at versions {versions}')
+        if not self.args.dry_run:
+            self.kv.undelete_secret_versions(
+                path, versions=versions, mount_point=self.mount_point)
         return 0
 
     def rollback(self, path, version):
         entry = self.read_secret(path, version=version)
-        self.kv.create_or_update_secret(path, entry, mount_point=self.mount_point)
+        logger.info(f'rollback {path} from version {version}')
+        if not self.args.dry_run:
+            self.kv.create_or_update_secret(path, entry, mount_point=self.mount_point)
         return 0
 
 
@@ -448,7 +471,10 @@ class PutOrPatch(KvCommand, ShowOne):
         else:
             secrets = self.parse_kvs(parsed_args.kvs)
         path = self.kv_action(kv, parsed_args, secrets)
-        return self.dict2columns(kv.read_secret(path, version=None))
+        if kv.args.dry_run:
+            return self.dict2columns({})
+        else:
+            return self.dict2columns(kv.read_secret(path, version=None))
 
 
 class Put(PutOrPatch):
