@@ -1,6 +1,13 @@
 CHANGES
 =======
 
+1.0.6
+-----
+
+* version 1.0.6
+* kv: make common option function static
+* split common options in a static function
+
 1.0.5
 -----
 
