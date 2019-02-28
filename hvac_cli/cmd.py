@@ -26,6 +26,11 @@ class HvacApp(App):
 
     def build_option_parser(self, description, version, argparse_kwargs=None):
         parser = super().build_option_parser(description, version, argparse_kwargs)
+        self.set_parser_arguments(parser)
+        return parser
+
+    @staticmethod
+    def set_parser_arguments(parser):
         parser.add_argument(
             '--dry-run',
             action='store_true',
@@ -80,7 +85,6 @@ class HvacApp(App):
                   'client certificate from -client-cert. '
                   'This can also be specified via the VAULT_CLIENT_KEY environment variable.')
         )
-        return parser
 
 
 def main(argv=sys.argv[1:]):
