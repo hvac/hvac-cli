@@ -674,11 +674,7 @@ class MetadataGet(KvCommand, ShowOne):
 
 class MetadataPut(KvCommand, ShowOne):
     """
-    Create a blank key or update the associated metadata
-
-    Create a key in the key-value store with no data:
-
-      $ hvac-cli kv metadata put secret/foo
+    Update the metadata associated with an existing key
 
     Set a max versions setting on the key:
 
