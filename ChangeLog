@@ -1,6 +1,17 @@
 CHANGES
 =======
 
+1.1.0
+-----
+
+* version 1.1.0
+* description: Hashicorp Vault CLI with additional features
+* kv: metadata put does not create empty keys
+* kv: user friendly error message when kv metadata get fails
+* kv: user friendly error message when kv rollback fails to read
+* kv: get needs --from-version instead of --version
+* kv: user friendly error message when sys/mounts is not readable
+
 1.0.6
 -----
 
