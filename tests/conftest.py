@@ -7,8 +7,8 @@ import sh
 import time
 
 
-@pytest.fixture
-def vault_server(tmpdir):
+@pytest.fixture(params=["1.0.3", "1.1.0-beta2"])
+def vault_server(tmpdir, request):
     tmppath = str(tmpdir)
     opensslconfig = tmppath + '/opensslconfig'
     open(opensslconfig, 'w').write("""
@@ -57,7 +57,7 @@ def vault_server(tmpdir):
               '-v', f'{config}:/vault/config/config.hcl',
               '-v', f'{tmppath}:/etc/test_ssl',
               '-d',
-              '--rm', '--cap-add=IPC_LOCK', f'--name={container}', 'vault')
+              '--rm', '--cap-add=IPC_LOCK', f'--name={container}', f'vault:{request.param}')
     crt = tmppath + '/server.crt'
     key = tmppath + '/server.key'
 
