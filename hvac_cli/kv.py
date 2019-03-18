@@ -1,5 +1,6 @@
 import json
 import logging
+import packaging.version
 from cliff.show import ShowOne
 from cliff.lister import Lister
 from cliff.command import Command
@@ -38,14 +39,16 @@ def kvcli_factory(super_args, args):
 
 class KVCLI(CLI):
 
-    def __init__(self, super_args, args):
-        super().__init__(super_args)
-        self.kv_version = args.kv_version
-        self.mount_point = args.mount_point
-        self.rewrite_key = getattr(args, 'rewrite_key', None)
+    def __init__(self, args, parsed_args):
+        super().__init__(args)
+        self.kv_version = parsed_args.kv_version
+        self.mount_point = parsed_args.mount_point
+        self.rewrite_key = getattr(parsed_args, 'rewrite_key', None)
+        self.parsed_args = parsed_args
+        self.status = self.vault.sys.read_health_status(method='GET')
 
     @staticmethod
-    def sanitize(path):
+    def sanitize(path, status, args):
         def log_sanitation(path, fun):
             new_path, reason = fun(path)
             if new_path != path:
@@ -60,10 +63,16 @@ class KVCLI(CLI):
             return re.sub(r'[\x00-\x1f%\x7f]', '_', path), user_friendly.__doc__
         path = log_sanitation(path, user_friendly)
 
-        def bug_6282(path):
-            "workaround https://github.com/hashicorp/vault/issues/6282"
-            return re.sub(r'[#*+(\\[]', '_', path), bug_6282.__doc__
-        path = log_sanitation(path, bug_6282)
+        if not args.no_workaround_6282:
+            def bug_6282(path):
+                "workaround https://github.com/hashicorp/vault/issues/6282"
+                if packaging.version.parse(status['version']) >= packaging.version.parse('1.1.0'):
+                    logger.info("Applying workaround for the bug "
+                                "https://github.com/hashicorp/vault/issues/6282")
+                    logger.info("The bug 6282 was fixed in vault 1.1.0 and the workaround "
+                                "can be disabled with --no-workaround-6282")
+                return re.sub(r'[#*+(\\[]', '_', path), bug_6282.__doc__
+            path = log_sanitation(path, bug_6282)
 
         def bug_6213(path):
             "workaround https://github.com/hashicorp/vault/issues/6213"
@@ -129,7 +138,7 @@ class KVv1CLI(KVCLI):
             raise SecretVersion(
                 f'{self.mount_point} is KV {self.kv_version} and does not support --cas')
         if self.rewrite_key:
-            path = self.sanitize(path)
+            path = self.sanitize(path, self.status, self.parsed_args)
         logger.info(f'put {path} {list(entry.keys())}')
         if not self.args.dry_run:
             self.kv.create_or_update_secret(path, entry, mount_point=self.mount_point)
@@ -194,7 +203,7 @@ class KVv2CLI(KVCLI):
 
     def create_or_update_secret(self, path, entry, cas):
         if self.rewrite_key:
-            path = self.sanitize(path)
+            path = self.sanitize(path, self.status, self.parsed_args)
         logger.info(f'put {path} {list(entry.keys())}')
         if not self.args.dry_run:
             self.kv.create_or_update_secret(path, entry, cas=cas, mount_point=self.mount_point)
@@ -202,7 +211,7 @@ class KVv2CLI(KVCLI):
 
     def patch(self, path, entry):
         if self.rewrite_key:
-            path = self.sanitize(path)
+            path = self.sanitize(path, self.status, self.parsed_args)
         logger.info(f'patch {path} {list(entry.keys())}')
         if not self.args.dry_run:
             self.kv.patch(path, entry, mount_point=self.mount_point)
@@ -261,6 +270,11 @@ class KvCommand(object):
                   'https://github.com/hashicorp/vault/issues/6213; replace '
                   'control characters and percent with an underscore'
                   )
+        )
+        parser.add_argument(
+            '--no-workaround-6282',
+            action='store_true',
+            help='Do not workaround bug https://github.com/hashicorp/vault/issues/6282'
         )
 
     @staticmethod

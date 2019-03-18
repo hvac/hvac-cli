@@ -18,9 +18,12 @@ def test_kvcli_factory(mocker, caplog):
 
 
 def test_sanitize_do_nothing():
-    assert KVCLI.sanitize('a/b/c') == 'a/b/c'
+    args = mock.MagicMock()
+    args.no_workaround_6282 = None
+    status = {'version': '1.1.0'}
+    assert KVCLI.sanitize('a/b/c', status, args) == 'a/b/c'
     path = 'éà'
-    assert KVCLI.sanitize(path) == path
+    assert KVCLI.sanitize(path, status, args) == path
 
 
 def test_sanitize_user_friendly(caplog):
@@ -42,15 +45,56 @@ def test_sanitize_user_friendly(caplog):
                 '-68-h|-69-i|-6a-j|-6b-k|-6c-l|-6d-m|-6e-n|-6f-o|'
                 '-70-p|-71-q|-72-r|-73-s|-74-t|-75-u|-76-v|-77-w|'
                 '-78-x|-79-y|-7a-z|-7b-{|-7c-||-7d-}|-7e-~|-7f-_')
-    assert KVCLI.sanitize(path) == expected
-    assert 'replace control characters' in caplog.text
+    args = mock.MagicMock()
+    args.no_workaround_6282 = None
+
+    status = {'version': '1.1.0'}
+    assert KVCLI.sanitize(path, status, args) == expected
+    assert 'bug 6282 was fixed' in caplog.text
     assert 'issues/6282' in caplog.text
+    assert 'replace control characters' in caplog.text
+    caplog.clear()
+
+    status = {'version': '1.0.3'}
+    assert KVCLI.sanitize(path, status, args) == expected
+    assert 'bug 6282 was fixed' not in caplog.text
+    assert 'issues/6282' in caplog.text
+    assert 'replace control characters' in caplog.text
+    caplog.clear()
+
+    expected = ('-00-_|-01-_|-02-_|-03-_|-04-_|-05-_|-06-_|-07-_|'
+                '-08-_|-09-_|-0a-_|-0b-_|-0c-_|-0d-_|-0e-_|-0f-_|'
+                '-10-_|-11-_|-12-_|-13-_|-14-_|-15-_|-16-_|-17-_|'
+                '-18-_|-19-_|-1a-_|-1b-_|-1c-_|-1d-_|-1e-_|-1f-_|'
+                '-20- |-21-!|-22-"|-23-#|-24-$|-25-_|-26-&|-27-\'|'
+                '-28-(|-29-)|-2a-*|-2b-+|-2c-,|-2d--|-2e-.|-2f-/|'
+                '-30-0|-31-1|-32-2|-33-3|-34-4|-35-5|-36-6|-37-7|'
+                '-38-8|-39-9|-3a-:|-3b-;|-3c-<|-3d-=|-3e->|-3f-?|'
+                '-40-@|-41-A|-42-B|-43-C|-44-D|-45-E|-46-F|-47-G|'
+                '-48-H|-49-I|-4a-J|-4b-K|-4c-L|-4d-M|-4e-N|-4f-O|'
+                '-50-P|-51-Q|-52-R|-53-S|-54-T|-55-U|-56-V|-57-W|'
+                '-58-X|-59-Y|-5a-Z|-5b-[|-5c-\\|-5d-]|-5e-^|-5f-_|'
+                '-60-`|-61-a|-62-b|-63-c|-64-d|-65-e|-66-f|-67-g|'
+                '-68-h|-69-i|-6a-j|-6b-k|-6c-l|-6d-m|-6e-n|-6f-o|'
+                '-70-p|-71-q|-72-r|-73-s|-74-t|-75-u|-76-v|-77-w|'
+                '-78-x|-79-y|-7a-z|-7b-{|-7c-||-7d-}|-7e-~|-7f-_')
+
+    status = {'version': '1.1.0'}
+    args.no_workaround_6282 = True
+    assert KVCLI.sanitize(path, status, args) == expected
+    assert 'bug 6282 was fixed' not in caplog.text
+    assert 'issues/6282' not in caplog.text
+    assert 'replace control characters' in caplog.text
+    caplog.clear()
 
 
 def test_sanitize_bug_6213(caplog):
     caplog.set_level(logging.INFO, 'hvac_cli')
+    args = mock.MagicMock()
+    args.no_workaround_6282 = None
+    status = {'version': '1.1.0'}
     path = 'A B /C / D '
-    assert KVCLI.sanitize(path) == 'A B/C/ D'
+    assert KVCLI.sanitize(path, status, args) == 'A B/C/ D'
     assert 'issues/6213' in caplog.text
 
 
@@ -124,6 +168,7 @@ def test_read_secret_version_v2(vault_server):
     KV_args.kv_version = None
     KV_args.mount_point = mount_point
     KV_args.rewrite_key = True
+    KV_args.no_workaround_6282 = None
     kv = kvcli_factory(CLI_args, KV_args)
 
     secret_key = 'my/key'
@@ -301,6 +346,7 @@ def test_patch_version_v2(vault_server):
     KV_args.kv_version = None
     KV_args.mount_point = mount_point
     KV_args.rewrite_key = True
+    KV_args.no_workaround_6282 = None
     kv = kvcli_factory(CLI_args, KV_args)
 
     secret_key = 'my/key'
@@ -461,6 +507,7 @@ def test_dry_run_version_v2(vault_server):
     KV_args.kv_version = None
     KV_args.mount_point = mount_point
     KV_args.rewrite_key = True
+    KV_args.no_workaround_6282 = None
     kv = kvcli_factory(CLI_args, KV_args)
 
     secret_key = 'my/key'

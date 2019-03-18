@@ -27,7 +27,7 @@ markupsafe==1.1.1         # via jinja2
 mccabe==0.6.1             # via flake8
 mock==2.0.0
 more-itertools==6.0.0     # via pytest
-packaging==19.0           # via sphinx
+packaging==19.0
 pbr==5.1.1
 pip-tools==3.3.2
 pkginfo==1.5.0.1          # via twine
