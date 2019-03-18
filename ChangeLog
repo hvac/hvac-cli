@@ -1,6 +1,13 @@
 CHANGES
 =======
 
+1.1.2
+-----
+
+* version 1.1.2
+* allow for deactivating workaround for 6282 if version > 1.1.0
+* run tests on 1.1.0 as well
+
 1.1.1
 -----
 
