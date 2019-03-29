@@ -44,11 +44,16 @@ class HvacApp(App):
                   'This can also be specified via the VAULT_TOKEN environment variable.')
         )
         parser.add_argument(
-            '--address',
-            default=os.getenv('VAULT_ADDR', DEFAULT_VAULT_ADDR),
+            '--address', '--agent-address',
+            default=os.getenv('VAULT_AGENT_ADDR', os.getenv('VAULT_ADDR', DEFAULT_VAULT_ADDR)),
             required=False,
-            help=('Address of the Vault server. '
-                  'This can also be specified via the VAULT_ADDR environment variable.')
+            dest='address',
+            help=('Address of the Vault server or the Vault agent. '
+                  '--agent-address was introduced with vault 1.1.0. '
+                  'This can also be specified via the VAULT_ADDR '
+                  'or the VAULT_AGENT_ADDR environment variable. '
+                  'If both VAULT_AGENT_ADDR and VAULT_ADDR are in the environment '
+                  'VAULT_AGENT_ADDR has precedence')
         )
         parser.add_argument(
             '--tls-skip-verify',

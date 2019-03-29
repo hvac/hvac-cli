@@ -10,6 +10,46 @@ def test_help(capsys):
     assert 'print bash completion command' in captured.out
 
 
+def test_parse_args_agent_address():
+    token_value = 'TOKEN'
+
+    with modified_environ(
+            'VAULT_AGENT_ADDR',
+    ):
+        app = cmd.HvacApp()
+        parser = app.build_option_parser('DESCRIPTION', 'version-1')
+        args = parser.parse_args([
+            '--token', token_value
+        ])
+        assert args.address == cmd.DEFAULT_VAULT_ADDR
+
+    addr = 'ADDR'
+
+    with modified_environ(
+            'VAULT_AGENT_ADDR',
+    ):
+        app = cmd.HvacApp()
+        parser = app.build_option_parser('DESCRIPTION', 'version-1')
+        args = parser.parse_args([
+            '--token', token_value,
+            '--agent-address', addr,
+        ])
+        assert args.address == addr
+
+    ignored = 'SHOULD BE IGNORED'
+
+    with modified_environ(
+            VAULT_ADDR=ignored,
+            VAULT_AGENT_ADDR=addr,
+    ):
+        app = cmd.HvacApp()
+        parser = app.build_option_parser('DESCRIPTION', 'version-1')
+        args = parser.parse_args([
+            '--token', token_value
+        ])
+        assert args.address == addr
+
+
 def test_parse_args():
     token_value = 'TOKEN'
     with modified_environ(
