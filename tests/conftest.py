@@ -7,7 +7,7 @@ import sh
 import time
 
 
-@pytest.fixture(params=["1.0.3", "1.1.0-beta2"])
+@pytest.fixture(params=["1.0.3", "1.1.0"])
 def vault_server(tmpdir, request):
     tmppath = str(tmpdir)
     opensslconfig = tmppath + '/opensslconfig'
