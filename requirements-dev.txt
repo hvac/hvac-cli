@@ -19,7 +19,7 @@ coverage==4.5.2
 docutils==0.14            # via readme-renderer, sphinx
 filelock==3.0.10          # via tox
 flake8==3.6.0
-hvac==0.7.2
+hvac==0.8.2
 idna==2.8                 # via requests
 imagesize==1.1.0          # via sphinx
 jinja2==2.10.1            # via sphinx
