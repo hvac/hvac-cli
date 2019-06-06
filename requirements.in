@@ -1,4 +1,4 @@
-hvac==0.8.2
+hvac==0.9.1
 pbr==5.1.1
 cliff>=2.14
 packaging==19.0
